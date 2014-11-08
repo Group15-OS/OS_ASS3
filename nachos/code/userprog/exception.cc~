@@ -100,6 +100,8 @@ ExceptionHandler(ExceptionType which)
     unsigned sleeptime;		// Used by syscall_Sleep
     int sharedSize;		// Used in syscall_ShmAllocate
     unsigned sharedMemoryStart; // Used in syscall_ShmAllocate
+    int semKey;			// Used in syscall_SemGet
+    int semId;			// Used in syscall_SemGet
 
     if ((which == SyscallException) && (type == syscall_Halt)) {
 	DEBUG('a', "Shutdown, initiated by user program.\n");
@@ -314,7 +316,7 @@ ExceptionHandler(ExceptionType which)
    
        // create a new Page table with shared pages
        sharedMemoryStart = (unsigned)currentThread->space->createNewPageTable(sharedSize, &pagesCreated);
-            	printf("\nThis is shmAllocate\n");
+            	//printf("\nThis is shmAllocate\n");
        // Increment the number of page faults
        stats->numPageFaults += pagesCreated;
 
@@ -325,6 +327,19 @@ ExceptionHandler(ExceptionType which)
 
        // Return the starting address of the shared memory region
        machine->WriteRegister(2, sharedMemoryStart);	
+    }
+    
+    else if ((which == SyscallException) && (type == syscall_SemGet))
+    {
+    	    	semKey = machine->ReadRegister(4);
+    	    	
+       // Advance program counters.
+       machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+       machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+       machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+
+       // Return the Semaphore ID
+       machine->WriteRegister(2, semId);	
     }
     
 ////// DONE CHANGES	//////////////////////////////////
