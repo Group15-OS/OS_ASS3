@@ -28,13 +28,13 @@ Enqueue (int x, int id)
       sys_PrintString(": waiting on queue full.");
       sys_PrintChar('\n');
       sys_SemOp(stdoutsemid, 1);
-      sys_CondOp(notFullid, COND_OP_WAIT, semid);
+//sys_CondOp(notFullid, COND_OP_WAIT, semid);
    }
    array[array[SIZE+1]] = x;
    y = array[SIZE+1];
    array[SIZE+1] = (array[SIZE+1] + 1)%SIZE;
    array[SIZE+2]++;
-   sys_CondOp(notEmptyid, COND_OP_SIGNAL, semid);
+//   sys_CondOp(notEmptyid, COND_OP_SIGNAL, semid);
    sys_SemOp(semid, 1);
    return y;
 }
@@ -52,13 +52,13 @@ Dequeue (int id, int *y)
       sys_PrintString(": waiting on queue empty.");
       sys_PrintChar('\n');
       sys_SemOp(stdoutsemid, 1);
-      sys_CondOp(notEmptyid, COND_OP_WAIT, semid);
+//      sys_CondOp(notEmptyid, COND_OP_WAIT, semid);
    }
    x = array[array[SIZE]];
    (*y) = array[SIZE];
    array[SIZE] = (array[SIZE] + 1)%SIZE;
    array[SIZE+2]--;
-   sys_CondOp(notFullid, COND_OP_SIGNAL, semid);
+  // sys_CondOp(notFullid, COND_OP_SIGNAL, semid);
    sys_SemOp(semid, 1);
    return x;
 }
@@ -78,14 +78,35 @@ main()
     array[SIZE+2] = 0;
 
     semid = sys_SemGet(SEM_KEY1);
-    sys_SemCtl(semid, SYNCH_SET, &seminit);
+    sys_PrintChar('\n');
+    sys_PrintInt(semid);
 
+    sys_SemCtl(semid, SYNCH_SET, &seminit);
+	
     stdoutsemid = sys_SemGet(SEM_KEY2);
     sys_SemCtl(stdoutsemid, SYNCH_SET, &seminit);
 
-    notFullid = sys_CondGet(COND_KEY1);
-    notEmptyid = sys_CondGet(COND_KEY2);
+	sys_PrintChar('\n');
+	sys_SemCtl(semid, SYNCH_GET, &seminit);
+	sys_PrintInt(seminit);
+	sys_PrintChar('\n');
+//	sys_SemCtl(semid, SYNCH_REMOVE, 0);
+//	sys_PrintChar('\n');
+//	sys_PrintInt(sys_SemCtl(semid, SYNCH_GET, &seminit));
+//	sys_PrintChar('\n');
+	sys_SemOp(semid,-1);
+	sys_SemCtl(semid, SYNCH_GET, &seminit);
+	sys_PrintInt(seminit);
+	sys_PrintChar('\n');
+	sys_SemOp(semid, 1);
+	sys_SemCtl(semid, SYNCH_GET, &seminit);
+	sys_PrintInt(seminit);
+	sys_PrintChar('\n');
 
+	
+   // notFullid = sys_CondGet(COND_KEY1);
+   // notEmptyid = sys_CondGet(COND_KEY2);
+/*
     for (i=0; i<NUM_DEQUEUER; i++) {
        x = sys_Fork();
        if (x == 0) {
@@ -139,13 +160,13 @@ main()
     }
     sys_SemCtl(semid, SYNCH_REMOVE, 0);
     sys_SemCtl(stdoutsemid, SYNCH_REMOVE, 0);
-    sys_CondRemove(notFullid);
-    sys_CondRemove(notEmptyid);
-
-  /*  sys_PrintInt(array[0]);
+    //sys_CondRemove(notFullid);
+    //sys_CondRemove(notEmptyid);
+*/
+    sys_PrintInt(10000);
     sys_PrintChar('\n');
-    sys_PrintInt(array[1]);
-    sys_PrintInt(array[2]);
-    */
-    return 0;
+    sys_PrintInt(11111);
+    sys_PrintInt(22222);
+    
+	return 0;
 }

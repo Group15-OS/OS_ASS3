@@ -41,7 +41,7 @@ Semaphore::Semaphore(char* debugName, int initialValue)
 }
 
 //----------------------------------------------------------------------
-// Semaphore::Semaphore
+// Semaphore::~Semaphore
 // 	De-allocate semaphore, when no longer needed.  Assume no one
 //	is still waiting on the semaphore!
 //----------------------------------------------------------------------
@@ -49,6 +49,18 @@ Semaphore::Semaphore(char* debugName, int initialValue)
 Semaphore::~Semaphore()
 {
     delete queue;
+}
+
+//--------------------------------------
+// Semaphore::setValue(int input)
+//	change the value of the Semaphore to the input value
+//	Group 15 made it
+//--------------------------------------
+
+void
+Semaphore::setValue(int input)
+{
+	value = input;
 }
 
 //----------------------------------------------------------------------

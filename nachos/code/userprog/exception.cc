@@ -335,18 +335,24 @@ ExceptionHandler(ExceptionType which)
     {
     	    	semKey = machine->ReadRegister(4);
 		for(i=0; i<Sem_size; i++){
-			if(Sem_keyId[i] == semKey){
-				semId = i;
+			if(semaphoreKey[i] == semKey){
+				semId = semaphoreId[i];
 				break;
 			}
 		}
-		if( i == Sem_size){
+		if(Sem_size >= MAX_SEMAPHORES){
+			printf("ERROR: The total number of semaphores has exceeded the allowed limit.\n Semaphore could not be created, function returns -1\n");
+			semId = -1;						//The return value corresponding to return
+		}
+		if(( i == Sem_size) && (Sem_size < MAX_SEMAPHORES)) {
 			IntStatus oldLevel = interrupt->SetLevel(IntOff);	//disable interrupts
 
-			Sem_keyId[Sem_size] = semKey;
+			semaphoreKey[Sem_size] = semKey;
+			semaphoreId[Sem_size] = Id_counter;
 			semaphores[Sem_size] = new Semaphore("Sem_name", 1);
-			semId = Sem_size;
+			semId = semaphoreId[Sem_size];
 			Sem_size++;
+			Id_counter++;
 
 			(void) interrupt->SetLevel(oldLevel);			//enable interrupts
 		}
@@ -363,11 +369,22 @@ ExceptionHandler(ExceptionType which)
     {
     	    	semId = machine->ReadRegister(4);
 		adjustment_value = machine->ReadRegister(5);
-		if(adjustment_value == -1){
-			semaphores[semId]->P();
+		for(i =0; i<Sem_size; i++){
+			if(semaphoreId[i] == semId){
+				semId = i;
+				break;
+			}
+		}
+		if(i == Sem_size){
+			printf("ERROR: The semaphore id entered is not a valid id\n");
 		}
 		else {
-			semaphores[semId]->V();
+			if(adjustment_value == -1){
+				semaphores[semId]->P();
+			}
+			else {
+				semaphores[semId]->V();
+			}
 		}
        // Advance program counters.
        machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
@@ -384,15 +401,22 @@ ExceptionHandler(ExceptionType which)
     	    	semId = machine->ReadRegister(4);
 		adjustment_value = machine->ReadRegister(5);
 		vaddr = machine->ReadRegister(6);
-		
-		if (semId < 0 || semId > Sem_size) {
+	
+		for (i=0; i<Sem_size; i++){
+			if(semaphoreId[i] == semId){
+				semId = i;
+				break;
+			}
+		}
+		if (i == Sem_size) {
 			exitcode = -1;
 		}
 		else if(adjustment_value == SYNCH_REMOVE){
 			delete semaphores[semId];
 			for(i=semId; i<Sem_size-1; i++){
 				semaphores[i] = semaphores[i+1];	//deleting semaphore
-				Sem_keyId[i] = Sem_keyId[i+1];		//removing from mapping
+				semaphoreKey[i] = semaphoreKey[i+1];		//removing from mapping
+				semaphoreId[i] = semaphoreId[i+1];
 			}
 			Sem_size--;
 			exitcode = 0;

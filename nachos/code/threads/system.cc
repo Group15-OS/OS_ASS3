@@ -19,6 +19,17 @@ Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
 
+/*
+* For the Semaphores
+*/
+int Sem_size = 0;
+int Id_counter = 0;
+int semaphoreId[MAX_SEMAPHORES];
+int semaphoreKey[MAX_SEMAPHORES];
+Semaphore *semaphores[MAX_SEMAPHORES];
+
+//////////////
+
 List *freedPages;
 TranslationEntry *pageEntries[NumPhysPages];
 unsigned numPagesAllocated;              // number of physical frames allocated
