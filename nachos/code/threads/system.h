@@ -37,7 +37,7 @@
 #define GET_NICE_FROM_PARENT	-1
 
 #define MAX_SEMAPHORES		256
-
+#define MAX_CONDITIONS		256
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -72,8 +72,13 @@ extern int Sem_size;
 extern int semaphoreId[];
 extern int semaphoreKey[];
 extern Semaphore *semaphores[];
-/////
-
+//////Condition Variables ke liye
+extern int Cond_size;
+extern int CondId_counter;
+extern int conditionId[];
+extern int conditionKey[];
+extern Condition *conditions[];
+//////
 
 class TimeSortedWaitQueue {		// Needed to implement SC_Sleep
 private:

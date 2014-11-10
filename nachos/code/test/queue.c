@@ -52,7 +52,9 @@ Dequeue (int id, int *y)
       sys_PrintString(": waiting on queue empty.");
       sys_PrintChar('\n');
       sys_SemOp(stdoutsemid, 1);
+	sys_PrintString("Debug statement after SemOp operation\n");
       sys_CondOp(notEmptyid, COND_OP_WAIT, semid);
+	sys_PrintString("Debug statement after CondOp operation\n");
    }
    x = array[array[SIZE]];
    (*y) = array[SIZE];
@@ -76,18 +78,17 @@ main()
     array[SIZE+2] = 100;
 
     semid = sys_SemGet(SEM_KEY1);
-	sys_PrintInt(semid);
-	sys_PrintChar('\n');
+//	sys_PrintInt(semid);
     sys_PrintInt(sys_SemCtl(semid, SYNCH_SET, &seminit));
-	sys_PrintChar('\n');
+/*	sys_PrintChar('\n');
 	sys_PrintInt(sys_SemCtl(semid, SYNCH_GET, &y));
 	sys_PrintChar('\n');
 	sys_PrintInt(y);
-	sys_PrintChar('\n');
+	sys_PrintChar('\n');*/
 
     stdoutsemid = sys_SemGet(SEM_KEY2);
     sys_SemCtl(stdoutsemid, SYNCH_SET, &seminit);
-/*
+
     notFullid = sys_CondGet(COND_KEY1);
     notEmptyid = sys_CondGet(COND_KEY2);
 
@@ -146,7 +147,6 @@ main()
     sys_SemCtl(stdoutsemid, SYNCH_REMOVE, 0);
     sys_CondRemove(notFullid);
     sys_CondRemove(notEmptyid);
-*/
 
 	sys_PrintInt(array[SIZE]);
 	sys_PrintChar('\n');

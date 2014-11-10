@@ -103,6 +103,8 @@ ExceptionHandler(ExceptionType which)
     int semId; 			// Used in syscall_SemGet
     int adjustment_value; 	// Used in syscall_SemOp
     int PhyAddr; 		// Used in syscall_SemCtl
+    int condId;			// Used in syscall_CondGet
+    int condKey;		// Used in syscall_CondGet
 
 
     if ((which == SyscallException) && (type == syscall_Halt)) {
@@ -371,8 +373,11 @@ ExceptionHandler(ExceptionType which)
 		if(adjustment_value == -1){
 			semaphores[semId]->P();
 		}
-		else {
+		else if(adjustment_value == 1){
 			semaphores[semId]->V();
+		}
+		else {
+			printf("ERROR: Invalid Operation id in syscall_SemOp\n");
 		}
 	}
 	// Advance program counters.
@@ -444,7 +449,129 @@ ExceptionHandler(ExceptionType which)
 	
 	// Return the Semaphore ID
 	machine->WriteRegister(2, exitcode);
-    } 
+    }
+ 
+    else if ((which == SyscallException) && (type == syscall_CondGet))
+    {
+	condKey = machine->ReadRegister(4);
+	for(i=0; i<Cond_size; i++){
+		if(conditionKey[i] == condKey){
+			condId = conditionId[i];
+			break;
+		}
+	}
+	if(Cond_size >= MAX_CONDITIONS){
+		printf("ERROR: The total number of conditions has exceeded the allowed limit.\n Condition Variable could not be created, function returns -1\n");
+		condId = -1; //The return value corresponding to return
+	}
+	if(( i == Cond_size) && (Cond_size < MAX_CONDITIONS)) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+	
+		conditionKey[Cond_size] = condKey;
+		conditionId[Cond_size] = CondId_counter;
+		conditions[Cond_size] = new Condition("Cond_name");
+		condId = conditionId[Cond_size];
+		Cond_size++;
+		CondId_counter++;
+	
+		(void) interrupt->SetLevel(oldLevel); //enable interrupts
+    	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, condId);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_CondOp))
+    {
+	condId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	semId = machine->ReadRegister(6);
+	
+	for(i =0; i<Cond_size; i++){
+		if(conditionId[i] == condId){
+			condId = i;
+			break;
+		}
+	}
+	if(i == Cond_size){
+		printf("ERROR: The condition variable id entered is not a valid id\n");
+	}
+	else {
+		for(i =0; i<Sem_size; i++){
+			if(semaphoreId[i] == semId){
+				semId = i;
+				break;
+			}
+		}
+		if(i == Sem_size){
+			printf("ERROR: The semaphore id entered is not a valid id\n");
+		}
+		else {
+			if(adjustment_value == COND_OP_WAIT){
+				printf("Before calling internal function\n");
+				conditions[condId]->Wait(semaphores[semId]);
+				printf("after the same\n");
+			}
+			if(adjustment_value == COND_OP_SIGNAL){
+				conditions[condId]->Signal();
+			}
+			if(adjustment_value == COND_OP_BROADCAST){
+				conditions[condId]->Broadcast();
+			}
+			else {
+				printf("ERROR: Invalid operation in syscall_CondOp");
+			}
+		}
+	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	//machine->WriteRegister(2, semId);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_CondRemove))
+    {
+	//printf("qqqqqqqqqqqqqqqqqqqqqq entered\n");
+	condId = machine->ReadRegister(4);
+//	adjustment_value = machine->ReadRegister(5);
+//	vaddr = machine->ReadRegister(6);
+	
+	for (i=0; i<Cond_size; i++){
+		if(conditionId[i] == condId){
+			condId = i;
+			break;
+		}
+	}
+	if (i == Cond_size) {
+		exitcode = -1;
+	}
+	else {
+		delete conditions[condId];
+		for(i=condId; i<Cond_size-1; i++){
+			conditions[i] = conditions[i+1]; //deleting condiion variable
+			conditionKey[i] = conditionKey[i+1]; //removing from mapping
+			conditionId[i] = conditionId[i+1];
+		}
+		Cond_size--;
+		exitcode = 0;
+	}
+	//printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaa successful completion\n");
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, exitcode);
+    }
+ 
 //////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////
 
    else {

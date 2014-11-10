@@ -117,8 +117,55 @@ Lock::~Lock() {}
 void Lock::Acquire() {}
 void Lock::Release() {}
 
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
+Condition::Condition(char* debugName) { 
+    name = debugName;
+    //value = initialValue;
+    queue = new List;
+}
+Condition::~Condition() {
+	delete queue;	
+}
 void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
 void Condition::Signal(Lock* conditionLock) { }
 void Condition::Broadcast(Lock* conditionLock) { }
+
+void
+Condition::Wait(Semaphore* S)
+{
+	S->V();
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	queue->Append((void *)currentThread);	// so go to sleep
+	currentThread->Sleep();
+	(void) interrupt->SetLevel(oldLevel);
+	S->P();	
+}
+
+void 
+Condition::Signal()
+{
+    Thread *thread;
+	
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    thread = (Thread *)queue->Remove();
+    if (thread != NULL)	   // make thread ready, consuming the V immediately
+	scheduler->ReadyToRun(thread);
+    //value++;
+    (void) interrupt->SetLevel(oldLevel);
+}
+
+void
+Condition::Broadcast()
+{
+    Thread *thread;
+	
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    thread = (Thread *)queue->Remove();
+    while (thread != NULL) {	   // make thread ready, consuming the V immediately
+	scheduler->ReadyToRun(thread);
+	thread = (Thread *)queue->Remove();
+    }
+    //value++;
+    (void) interrupt->SetLevel(oldLevel);
+}
