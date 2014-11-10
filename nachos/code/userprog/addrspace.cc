@@ -77,6 +77,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 			+ UserStackSize;	// we need to increase the size
 						// to leave room for the stack
     numPages = divRoundUp(size, PageSize);
+	printf("The num of pages that were already allocated, from the constructor, is %d\n", numPages);
     size = numPages * PageSize;
 
     ASSERT(numPages+numPagesAllocated <= NumPhysPages);		// check we're not trying
@@ -199,23 +200,27 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace, int pid)
 unsigned AddrSpace::createNewPageTable(int sharedSize, int *pagesCreated)
 {
 	 int threadPid = currentThread->GetPID();
-
+	printf("The pid of the current thread is %d\n", threadPid);
     // Compute the numPages in the originalSpace
     unsigned originalPages = GetNumPages();
+	printf("The value of the variable originalPages is %d\n", originalPages);	
 	    	
     // Compute the number of sharedPages, round up if needed
     unsigned sharedPages = sharedSize / PageSize;
+	printf("The num of shared pages is %d\n", sharedPages);
     
     if ( sharedSize % PageSize ) {
         sharedPages ++;
     }
     countSharedPages += sharedPages;
+	printf("The num of Shared Pages is %d\n", countSharedPages);
 
     // Return the number of pages created
     *pagesCreated = sharedPages;
 	
     // Update the number of pages of the addresspace
     numPages = originalPages + sharedPages;
+	printf("After implementation, the total number of allocated pages is %d\n", numPages);
     unsigned i;
     numPagesAllocated +=sharedPages;
     ASSERT(numPagesAllocated <= NumPhysPages);                // check we're not trying

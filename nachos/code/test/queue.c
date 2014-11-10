@@ -15,7 +15,7 @@
 
 int *array, semid, stdoutsemid, notFullid, notEmptyid;
 
-int
+/*int
 Enqueue (int x, int id)
 {
    int y;
@@ -62,18 +62,19 @@ Dequeue (int id, int *y)
    sys_SemOp(semid, 1);
    return x;
 }
-
+*/
 int
 main()
 {
     array = (int*)sys_ShmAllocate(sizeof(int)*(3));  // queue[SIZE], head, tail, count
+//      sys_PrintString("Dequeuer ");
     int x, i, j, seminit = 1, y;
     int pid[NUM_DEQUEUER+NUM_ENQUEUER];
 //int i;
-    for (i=0; i<SIZE; i++) array[i] = -1;
+//    for (i=0; i<SIZE; i++) array[i] = -1;
 //	array[0] = 0;
 //	array[1] = 1;
-    array[SIZE] = 0;
+/*    array[SIZE] = 0;
     array[SIZE+1] = 0;
     array[SIZE+2] = 0;
 
@@ -142,10 +143,10 @@ main()
     sys_CondRemove(notFullid);
     sys_CondRemove(notEmptyid);
 
-  /*  sys_PrintInt(array[0]);
+    sys_PrintInt(array[0]);
     sys_PrintChar('\n');
     sys_PrintInt(array[1]);
     sys_PrintInt(array[2]);
-    */
+*/    
     return 0;
 }
