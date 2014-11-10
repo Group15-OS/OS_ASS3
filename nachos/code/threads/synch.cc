@@ -51,6 +51,18 @@ Semaphore::~Semaphore()
     delete queue;
 }
 
+//--------------------------------------
+// Semaphore::setValue(int input)
+// change the value of the Semaphore to the input value
+// Group 15 made it
+//--------------------------------------
+	
+void
+Semaphore::setValue(int input)
+{
+	value = input;
+}
+
 //----------------------------------------------------------------------
 // Semaphore::P
 // 	Wait until semaphore value > 0, then decrement.  Checking the

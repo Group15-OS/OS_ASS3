@@ -98,6 +98,12 @@ ExceptionHandler(ExceptionType which)
     int whichChild;		// Used in syscall_Join
     Thread *child;		// Used by syscall_Fork
     unsigned sleeptime;		// Used by syscall_Sleep
+    int size;			// Used in syscall_ShmAllocate	
+    int semKey; 		// Used in syscall_SemGet
+    int semId; 			// Used in syscall_SemGet
+    int adjustment_value; 	// Used in syscall_SemOp
+    int PhyAddr; 		// Used in syscall_SemCtl
+
 
     if ((which == SyscallException) && (type == syscall_Halt)) {
 	DEBUG('a', "Shutdown, initiated by user program.\n");
@@ -302,11 +308,147 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
     }
 ///////////////////////// STARTING CHANGES FOR ASSIGNMENT3 ///////////////////////
+    else if((which == SyscallException) && (type == syscall_ShmAllocate)) {
+	size = machine->ReadRegister(4);    
 
+	vaddr = currentThread->space->AllocateSharedMemory(size);
+       
+	machine->WriteRegister(2, vaddr);
+       // Advance program counters.
+       machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+       machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+       machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_SemGet))
+    {
+	semKey = machine->ReadRegister(4);
+	for(i=0; i<Sem_size; i++){
+		if(semaphoreKey[i] == semKey){
+			semId = semaphoreId[i];
+			break;
+		}
+	}
+	if(Sem_size >= MAX_SEMAPHORES){
+		printf("ERROR: The total number of semaphores has exceeded the allowed limit.\n Semaphore could not be created, function returns -1\n");
+		semId = -1; //The return value corresponding to return
+	}
+	if(( i == Sem_size) && (Sem_size < MAX_SEMAPHORES)) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+	
+		semaphoreKey[Sem_size] = semKey;
+		semaphoreId[Sem_size] = Id_counter;
+		semaphores[Sem_size] = new Semaphore("Sem_name", 1);
+		semId = semaphoreId[Sem_size];
+		Sem_size++;
+		Id_counter++;
+	
+		(void) interrupt->SetLevel(oldLevel); //enable interrupts
+    	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, semId);
+    }
+	
+    else if ((which == SyscallException) && (type == syscall_SemOp))
+    {
+	semId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	for(i =0; i<Sem_size; i++){
+		if(semaphoreId[i] == semId){
+			semId = i;
+			break;
+		}
+	}
+	if(i == Sem_size){
+		printf("ERROR: The semaphore id entered is not a valid id\n");
+	}
+	else {
+		if(adjustment_value == -1){
+			semaphores[semId]->P();
+		}
+		else {
+			semaphores[semId]->V();
+		}
+	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	//machine->WriteRegister(2, semId);
+    }
+	
+    else if ((which == SyscallException) && (type == syscall_SemCtl))
+    {
+	//printf("qqqqqqqqqqqqqqqqqqqqqq entered\n");
+	semId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	vaddr = machine->ReadRegister(6);
+	
+	for (i=0; i<Sem_size; i++){
+		if(semaphoreId[i] == semId){
+			semId = i;
+			break;
+		}
+	}
+	if (i == Sem_size) {
+		exitcode = -1;
+	}
+	else if(adjustment_value == SYNCH_REMOVE){
+		delete semaphores[semId];
+		for(i=semId; i<Sem_size-1; i++){
+			semaphores[i] = semaphores[i+1]; //deleting semaphore
+			semaphoreKey[i] = semaphoreKey[i+1]; //removing from mapping
+			semaphoreId[i] = semaphoreId[i+1];
+		}
+		Sem_size--;
+		exitcode = 0;
+	}
+	else if(adjustment_value == SYNCH_GET) {
+		PhyAddr = machine->GetPA(vaddr);
+		if(PhyAddr == -1){
+			exitcode = -1;
+		}
+		else {
+			machine->mainMemory[PhyAddr] = semaphores[semId]->getValue();
+			exitcode = 0;
+		}
+	}
+	else if(adjustment_value == SYNCH_SET) {
+		PhyAddr = machine->GetPA(vaddr);
+		//printf("reached a correct destination before segmentation fault\n");
+		if(PhyAddr == -1){
+			exitcode = -1;
+		}
+		else {
+			//printf("intPointer is also not null, baby we are going to rock the world");
+			semaphores[semId]->setValue(machine->mainMemory[PhyAddr]);
+			exitcode = 0;
+		}
+	}
+	else {
+		//printf("The adjustment value was not a valid value");
+		exitcode = -1;
+	}
+	//printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaa successful completion\n");
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, exitcode);
+    } 
 //////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////
 
- else {
+   else {
 	printf("Unexpected user mode exception %d %d\n", which, type);
 	ASSERT(FALSE);
-    }
+   }
 }

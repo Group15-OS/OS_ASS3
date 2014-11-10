@@ -96,6 +96,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
 					// a separate page, we could set its 
 					// pages to be read-only
+	pageTable[i].shared = FALSE;
     }
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
@@ -135,7 +136,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 AddrSpace::AddrSpace(AddrSpace *parentSpace)
 {
     numPages = parentSpace->GetNumPages();
-    unsigned i, size = numPages * PageSize;
+    unsigned i, j = 0, size = numPages * PageSize;
 
     ASSERT(numPages+numPagesAllocated <= NumPhysPages);                // check we're not trying
                                                                                 // to run anything too big --
@@ -149,23 +150,83 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
         pageTable[i].virtualPage = i;
-        pageTable[i].physicalPage = i+numPagesAllocated;
+	if (parentPageTable[i].shared)
+        	pageTable[i].physicalPage = parentPageTable[i].physicalPage;
+	else
+	{	
+		pageTable[i].physicalPage = j+numPagesAllocated;
+		j++;
+	}
         pageTable[i].valid = parentPageTable[i].valid;
         pageTable[i].use = parentPageTable[i].use;
         pageTable[i].dirty = parentPageTable[i].dirty;
         pageTable[i].readOnly = parentPageTable[i].readOnly;  	// if the code segment was entirely on
                                         			// a separate page, we could set its
                                         			// pages to be read-only
+	pageTable[i].shared = parentPageTable[i].shared;
     }
 
     // Copy the contents
     unsigned startAddrParent = parentPageTable[0].physicalPage*PageSize;
     unsigned startAddrChild = numPagesAllocated*PageSize;
     for (i=0; i<size; i++) {
-       machine->mainMemory[startAddrChild+i] = machine->mainMemory[startAddrParent+i];
+	if(parentPageTable[i].shared == FALSE)
+       		machine->mainMemory[startAddrChild+i] = machine->mainMemory[startAddrParent+i];
     }
 
-    numPagesAllocated += numPages;
+    //numPagesAllocated += numPages;
+	numPagesAllocated += j;
+}
+
+//----------------------------------------------------------------------------
+//CHANGES FOR ASSIGNMENT 3
+//AllocateSharedMemory - allocates shared memory when ShmAllocate is called
+//-----------------------------------------------------------------------------
+
+int
+AddrSpace::AllocateSharedMemory(int size )
+{
+	unsigned i;
+	unsigned TotalPages;					//Number of current pages + pages needed to cover the shared memory
+	unsigned CurrentPages = GetNumPages();
+	unsigned SharedPages = divRoundUp(size, PageSize);
+	TotalPages = CurrentPages+SharedPages;
+	
+	TranslationEntry* oldPageTable = GetPageTable();
+	pageTable = new TranslationEntry[TotalPages];
+	for (i=0; i<CurrentPages; i++) {
+            pageTable[i].virtualPage = oldPageTable[i].virtualPage;
+            pageTable[i].physicalPage = oldPageTable[i].physicalPage;
+            pageTable[i].valid = oldPageTable[i].valid;
+            pageTable[i].use = oldPageTable[i].use;
+            pageTable[i].dirty = oldPageTable[i].dirty;
+            pageTable[i].readOnly = oldPageTable[i].readOnly;  	// if the code segment was entirely on
+                                        			// a separate page, we could set its
+                                        			// pages to be read-only
+	    pageTable[i].shared = FALSE;
+
+	}
+	for (i=CurrentPages; i<TotalPages; i++) {
+           pageTable[i].virtualPage = i;
+           pageTable[i].physicalPage = i+numPagesAllocated;
+           pageTable[i].valid = TRUE;
+           pageTable[i].use = FALSE;
+           pageTable[i].dirty = FALSE;
+           pageTable[i].readOnly = FALSE;  	// if the code segment was entirely on
+                                        			// a separate page, we could set its
+                                        			// pages to be read-only
+ 	   pageTable[i].shared = TRUE;
+
+
+	}
+	numPages = TotalPages;
+	numPagesAllocated += SharedPages;
+
+	machine->pageTable = pageTable;
+	machine->pageTableSize = TotalPages;
+
+	delete oldPageTable;
+	return CurrentPages*PageSize;
 }
 
 //----------------------------------------------------------------------
