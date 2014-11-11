@@ -133,7 +133,11 @@ class Machine {
 				// memory (at addr).  Return FALSE if a 
 				// correct translation couldn't be found.
     
-    ExceptionType Translate(int virtAddr, int* physAddr, int size,bool writing);
+   int PageFaultHandler(unsigned int vpn);	//Page Fault Handler 
+
+
+
+   ExceptionType Translate(int virtAddr, int* physAddr, int size,bool writing);
     				// Translate an address, and check for 
 				// alignment.  Set the use and dirty bits in 
 				// the translation entry appropriately,

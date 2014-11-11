@@ -168,6 +168,23 @@ Machine::WriteMem(int addr, int size, int value)
     return TRUE;
 }
 
+//---------------------------------------------------------------------
+//Machine::PageFaultHandler
+//Made by Group15
+//----------------------------------------------------------------------
+int
+Machine::PageFaultHandler(unsigned int vpn)
+{
+	TranslationEntry *entry;
+	int i=0;
+	Sleep();
+	while (PhyPageIsAllocated[i]) i++;
+	entry = &pageTable[vpn];
+	entry->physicalPage = i;	
+}
+//--------------------------------------------------------------------
+
+
 //----------------------------------------------------------------------
 // Machine::Translate
 // 	Translate a virtual address into a physical address, using 
@@ -216,7 +233,11 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 	} else if (!pageTable[vpn].valid) {
 	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
 			virtAddr, pageTableSize);
-	    return PageFaultException;
+		numPageFaults++;
+		if (PageFaultHandler() == -1)
+	    		return PageFaultException;
+		else
+			*physAddr = PageFaultHandler();
 	}
 	entry = &pageTable[vpn];
     } else {
@@ -227,6 +248,11 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 	    }
 	if (entry == NULL) {				// not found
     	    DEBUG('a', "*** no valid TLB entry found for this virtual page!\n");
+		//numPageFaults++;
+		//if (PageFaultHandler() == -1)
+	    	//	return PageFaultException;
+		//else
+		//	*physAddr = PageFaultHandler();
     	    return PageFaultException;		// really, this is a TLB fault,
 						// the page may be in memory,
 						// but not in the TLB

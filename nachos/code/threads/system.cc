@@ -36,6 +36,9 @@ int conditionId[MAX_CONDITIONS];
 int conditionKey[MAX_CONDITIONS];
 Condition *conditions[MAX_CONDITIONS];
 //////////////
+/*For Demand Pagin */
+bool PhyPageIsAllocated[NumPhysPages]={false};	//tells if a physical page is free or allocated
+///////////////
 unsigned numPagesAllocated;              // number of physical frames allocated
 
 Thread *threadArray[MAX_THREAD_COUNT];  // Array of thread pointers

@@ -79,7 +79,9 @@ extern int conditionId[];
 extern int conditionKey[];
 extern Condition *conditions[];
 //////
-
+/*for demand paging*/
+extern bool PhyPageIsAllocated[];
+/////
 class TimeSortedWaitQueue {		// Needed to implement SC_Sleep
 private:
    Thread *t;				// Thread pointer of the sleeping thread

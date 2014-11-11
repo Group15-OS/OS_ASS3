@@ -89,8 +89,8 @@ AddrSpace::AddrSpace(OpenFile *executable)
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
 	pageTable[i].virtualPage = i;
-	pageTable[i].physicalPage = i+numPagesAllocated;
-	pageTable[i].valid = TRUE;
+//	pageTable[i].physicalPage = i+numPagesAllocated;
+	pageTable[i].valid = FALSE;
 	pageTable[i].use = FALSE;
 	pageTable[i].dirty = FALSE;
 	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
@@ -228,7 +228,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	numPagesAllocated += SharedPages;
 
 	machine->pageTable = pageTable;
-	machine->pageTableSize = TotalPages*PageSize;
+	machine->pageTableSize = TotalPages;
 
 	delete oldPageTable;
 	return CurrentPages*PageSize;
