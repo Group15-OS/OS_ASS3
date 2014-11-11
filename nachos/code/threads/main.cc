@@ -84,6 +84,7 @@ main(int argc, char **argv)
 					// for a particular command
 
     int schedPriority = MAX_NICE_PRIORITY;
+    int replacementAlgo;
 
     DEBUG('t', "Entering main");
     (void) Initialize(argc, argv);
@@ -116,7 +117,12 @@ main(int argc, char **argv)
             currentThread->SetBasePriority(schedPriority+DEFAULT_BASE_PRIORITY);
             currentThread->SetPriority(schedPriority+DEFAULT_BASE_PRIORITY);
             currentThread->SetUsage(0);
-        } else if (!strcmp(*argv, "-x")) {        	// run a user program
+        } else if (!strcmp(*argv, "-R")) {
+		replacementAlgo = atoi(*(argv + 1));
+		argCount = 2;
+		ASSERT((replacementAlgo >= 1) && (replacementAlgo <= 4));
+	}
+	 else if (!strcmp(*argv, "-x")) {        	// run a user program
 	    ASSERT(argc > 1);
             StartProcess(*(argv + 1));
             argCount = 2;

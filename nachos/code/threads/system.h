@@ -36,8 +36,8 @@
 #define DEFAULT_BASE_PRIORITY	50		// Default base priority (used by UNIX scheduler)
 #define GET_NICE_FROM_PARENT	-1
 
-#define MAX_SEMAPHORES		256
-#define MAX_CONDITIONS		256
+#define MAX_SEMAPHORES		128
+#define MAX_CONDITIONS		128
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -68,12 +68,12 @@ extern bool excludeMainThread;		// Used by completion time statistics calculatio
 
 //////Semaphore ke liye
 extern int Id_counter;
-extern int Sem_size;
+extern unsigned Sem_size;
 extern int semaphoreId[];
 extern int semaphoreKey[];
 extern Semaphore *semaphores[];
 //////Condition Variables ke liye
-extern int Cond_size;
+extern unsigned Cond_size;
 extern int CondId_counter;
 extern int conditionId[];
 extern int conditionKey[];

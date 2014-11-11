@@ -136,7 +136,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 AddrSpace::AddrSpace(AddrSpace *parentSpace)
 {
     numPages = parentSpace->GetNumPages();
-    unsigned i, j = 0, size = numPages * PageSize;
+    unsigned i, j, size = numPages * PageSize;
 
     ASSERT(numPages+numPagesAllocated <= NumPhysPages);                // check we're not trying
                                                                                 // to run anything too big --
@@ -150,12 +150,16 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
         pageTable[i].virtualPage = i;
-	if (parentPageTable[i].shared)
+	if (parentPageTable[i].shared) {
         	pageTable[i].physicalPage = parentPageTable[i].physicalPage;
+	}
 	else
 	{	
-		pageTable[i].physicalPage = j+numPagesAllocated;
-		j++;
+		pageTable[i].physicalPage = numPagesAllocated;
+		for (j=0 ; j< PageSize; j++){
+	      		machine->mainMemory[(pageTable[i].physicalPage*PageSize)+j] = machine->mainMemory[(parentPageTable[i].physicalPage*PageSize)+j];
+		}
+		numPagesAllocated++;
 	}
         pageTable[i].valid = parentPageTable[i].valid;
         pageTable[i].use = parentPageTable[i].use;
@@ -167,23 +171,24 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
     }
 
     // Copy the contents
-    unsigned startAddrParent = parentPageTable[0].physicalPage*PageSize;
+   /* unsigned startAddrParent = parentPageTable[0].physicalPage*PageSize;
     unsigned startAddrChild = numPagesAllocated*PageSize;
     for (i=0; i<size; i++) {
-	if(parentPageTable[i].shared == FALSE)
-       		machine->mainMemory[startAddrChild+i] = machine->mainMemory[startAddrParent+i];
-    }
+	for (j=0; j<numPages; j++){
+	if(parentPageTable[j].shared == FALSE)
+      		machine->mainMemory[startAddrChild+j] = machine->mainMemory[startAddrParent+j];
+	}
+    }*/
 
     //numPagesAllocated += numPages;
-	numPagesAllocated += j;
+//	numPagesAllocated += numPages - j;
 }
 
 //----------------------------------------------------------------------------
 //CHANGES FOR ASSIGNMENT 3
 //AllocateSharedMemory - allocates shared memory when ShmAllocate is called
 //-----------------------------------------------------------------------------
-
-int
+unsigned
 AddrSpace::AllocateSharedMemory(int size )
 {
 	unsigned i;
@@ -195,7 +200,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	TranslationEntry* oldPageTable = GetPageTable();
 	pageTable = new TranslationEntry[TotalPages];
 	for (i=0; i<CurrentPages; i++) {
-            pageTable[i].virtualPage = oldPageTable[i].virtualPage;
+            pageTable[i].virtualPage = i;
             pageTable[i].physicalPage = oldPageTable[i].physicalPage;
             pageTable[i].valid = oldPageTable[i].valid;
             pageTable[i].use = oldPageTable[i].use;
@@ -203,7 +208,7 @@ AddrSpace::AllocateSharedMemory(int size )
             pageTable[i].readOnly = oldPageTable[i].readOnly;  	// if the code segment was entirely on
                                         			// a separate page, we could set its
                                         			// pages to be read-only
-	    pageTable[i].shared = FALSE;
+	    pageTable[i].shared = oldPageTable[i].shared;
 
 	}
 	for (i=CurrentPages; i<TotalPages; i++) {
@@ -223,7 +228,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	numPagesAllocated += SharedPages;
 
 	machine->pageTable = pageTable;
-	machine->pageTableSize = TotalPages;
+	machine->pageTableSize = TotalPages*PageSize;
 
 	delete oldPageTable;
 	return CurrentPages*PageSize;

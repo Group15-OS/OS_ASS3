@@ -37,7 +37,7 @@ class AddrSpace {
     unsigned GetNumPages();
 
     TranslationEntry* GetPageTable();
-    int AllocateSharedMemory(int size);
+    unsigned AllocateSharedMemory(int size);
 
 
   private:

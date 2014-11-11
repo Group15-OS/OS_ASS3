@@ -167,12 +167,19 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
        
        child = new Thread("Forked thread", GET_NICE_FROM_PARENT);
+    	//printf("creating new thread for child\n");
        child->space = new AddrSpace (currentThread->space);  // Duplicates the address space
-       child->SaveUserState ();		     		      // Duplicate the register set
+       	//printf("address space for child created\n");
+	child->SaveUserState ();		     		      // Duplicate the register set
+       	//printf("address space for child created 1111111\n");
        child->ResetReturnValue ();			     // Sets the return register to zero
+       	//printf("address space for child created 2222222\n");
        child->StackAllocate (ForkStartFunction, 0);	// Make it ready for a later context switch
+       	//printf("address space for child created 333333333\n");
        child->Schedule ();
+       	//printf("address space for child created 44444\n");
        machine->WriteRegister(2, child->GetPID());		// Return value for parent
+       	//printf("address space for child created 5555555\n");
     }
     else if ((which == SyscallException) && (type == syscall_Yield)) {
        currentThread->Yield();
@@ -516,10 +523,10 @@ ExceptionHandler(ExceptionType which)
 				conditions[condId]->Wait(semaphores[semId]);
 				printf("after the same\n");
 			}
-			if(adjustment_value == COND_OP_SIGNAL){
+			else if(adjustment_value == COND_OP_SIGNAL){
 				conditions[condId]->Signal();
 			}
-			if(adjustment_value == COND_OP_BROADCAST){
+			else if(adjustment_value == COND_OP_BROADCAST){
 				conditions[condId]->Broadcast();
 			}
 			else {

@@ -132,12 +132,19 @@ void Condition::Broadcast(Lock* conditionLock) { }
 void
 Condition::Wait(Semaphore* S)
 {
+	printf("line 1");
 	S->V();
-	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	printf("line 2");
 	queue->Append((void *)currentThread);	// so go to sleep
+	printf("line 3");
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	printf("line 4");
 	currentThread->Sleep();
+	printf("line 5");
 	(void) interrupt->SetLevel(oldLevel);
+	printf("line 6");
 	S->P();	
+	printf("line 7");
 }
 
 void 
@@ -145,13 +152,13 @@ Condition::Signal()
 {
     Thread *thread;
 	
-    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+//    IntStatus oldLevel = interrupt->SetLevel(IntOff);
 
     thread = (Thread *)queue->Remove();
     if (thread != NULL)	   // make thread ready, consuming the V immediately
 	scheduler->ReadyToRun(thread);
     //value++;
-    (void) interrupt->SetLevel(oldLevel);
+  //  (void) interrupt->SetLevel(oldLevel);
 }
 
 void

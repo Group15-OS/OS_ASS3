@@ -22,7 +22,7 @@ Timer *timer;				// the hardware timer device,
 /*
 * For the Semaphores
 */
-int Sem_size = 0;
+unsigned Sem_size = 0;
 int Id_counter = 0;
 int semaphoreId[MAX_SEMAPHORES];
 int semaphoreKey[MAX_SEMAPHORES];
@@ -30,7 +30,7 @@ Semaphore *semaphores[MAX_SEMAPHORES];
 /*
 * For Condition Variable
 */
-int Cond_size = 0;
+unsigned Cond_size = 0;
 int CondId_counter = 0;
 int conditionId[MAX_CONDITIONS];
 int conditionKey[MAX_CONDITIONS];
