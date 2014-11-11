@@ -213,7 +213,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	}
 	for (i=CurrentPages; i<TotalPages; i++) {
            pageTable[i].virtualPage = i;
-           pageTable[i].physicalPage = i+numPagesAllocated;
+           pageTable[i].physicalPage = i+numPagesAllocated-CurrentPages;
            pageTable[i].valid = TRUE;
            pageTable[i].use = FALSE;
            pageTable[i].dirty = FALSE;
@@ -228,7 +228,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	numPagesAllocated += SharedPages;
 
 	machine->pageTable = pageTable;
-	machine->pageTableSize = TotalPages*PageSize;
+	machine->pageTableSize = TotalPages;
 
 	delete oldPageTable;
 	return CurrentPages*PageSize;

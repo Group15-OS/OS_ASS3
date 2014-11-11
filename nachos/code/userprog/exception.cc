@@ -519,9 +519,9 @@ ExceptionHandler(ExceptionType which)
 		}
 		else {
 			if(adjustment_value == COND_OP_WAIT){
-				printf("Before calling internal function\n");
+				//printf("Before calling internal function\n");
 				conditions[condId]->Wait(semaphores[semId]);
-				printf("after the same\n");
+				//printf("after the same\n");
 			}
 			else if(adjustment_value == COND_OP_SIGNAL){
 				conditions[condId]->Signal();
