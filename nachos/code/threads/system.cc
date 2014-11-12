@@ -37,7 +37,8 @@ int conditionKey[MAX_CONDITIONS];
 Condition *conditions[MAX_CONDITIONS];
 //////////////
 /*For Demand Pagin */
-bool PhyPageIsAllocated[NumPhysPages]={false};	//tells if a physical page is free or allocated
+bool PhyPageIsAllocated[1024]={false};	//tells if a physical page is free or allocated
+char* currentFile;
 ///////////////
 unsigned numPagesAllocated;              // number of physical frames allocated
 

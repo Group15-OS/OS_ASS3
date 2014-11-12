@@ -38,6 +38,7 @@ class AddrSpace {
 
     TranslationEntry* GetPageTable();
     unsigned AllocateSharedMemory(int size);
+    void CopyContent(unsigned int vpn);
 
 
   private:
@@ -45,6 +46,7 @@ class AddrSpace {
 					// for now!
     unsigned int numPages;		// Number of pages in the virtual 
 					// address space
+    char *file;
 };
 
 #endif // ADDRSPACE_H

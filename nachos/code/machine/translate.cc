@@ -33,6 +33,9 @@
 #include "machine.h"
 #include "addrspace.h"
 #include "system.h"
+//#include "noff.h"
+//#include "filesys.h"
+
 
 // Routines for converting Words and Short Words to and from the
 // simulated machine's format of little endian.  These end up
@@ -94,10 +97,16 @@ Machine::ReadMem(int addr, int size, int *value)
     DEBUG('a', "Reading VA 0x%x, size %d\n", addr, size);
     
     exception = Translate(addr, &physicalAddress, size, FALSE);
-    if (exception != NoException) {
-	machine->RaiseException(exception, addr);
-	return FALSE;
-    }
+   // if (exception != NoException) {
+    	while(exception != NoException)
+    	{	
+   		    exception = Translate(addr, &physicalAddress, size, FALSE);
+	    	machine->RaiseException(exception, addr);
+
+    	}
+	//machine->RaiseException(exception, addr);
+	//return FALSE;
+    //}
     switch (size) {
       case 1:
 	data = machine->mainMemory[physicalAddress];
@@ -143,10 +152,16 @@ Machine::WriteMem(int addr, int size, int value)
     DEBUG('a', "Writing VA 0x%x, size %d, value 0x%x\n", addr, size, value);
 
     exception = Translate(addr, &physicalAddress, size, TRUE);
-    if (exception != NoException) {
-	machine->RaiseException(exception, addr);
-	return FALSE;
-    }
+     //if (exception != NoException) {
+    	while(exception != NoException)
+    	{
+   		    exception = Translate(addr, &physicalAddress, size, TRUE);
+	    	machine->RaiseException(exception, addr);
+
+    	}
+	//machine->RaiseException(exception, addr);
+	//return FALSE;
+    //}
     switch (size) {
       case 1:
 	machine->mainMemory[physicalAddress] = (unsigned char) (value & 0xff);
@@ -172,16 +187,47 @@ Machine::WriteMem(int addr, int size, int value)
 //Machine::PageFaultHandler
 //Made by Group15
 //----------------------------------------------------------------------
-int
+/*int
 Machine::PageFaultHandler(unsigned int vpn)
 {
 	TranslationEntry *entry;
 	int i=0;
-	Sleep();
+//	currentThread
 	while (PhyPageIsAllocated[i]) i++;
+	if (i >= NumPhysPages)
+		return -1;
+//	currentThread->SortedInsertInWaitQueue(stats->totalTicks+1000);
 	entry = &pageTable[vpn];
-	entry->physicalPage = i;	
-}
+	entry->physicalPage = i;
+	entry->valid = TRUE;	
+	PhyPageIsAllocated[i] = TRUE;
+
+	bzero(&machine->mainMemory[numPagesAllocated*PageSize], PageSize);
+	
+	numPagesAllocated++;
+// then, copy in the code and data segments into memory
+    if (noffH.code.size > 0) {
+        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+			noffH.code.virtualAddr, noffH.code.size);
+        vpn = noffH.code.virtualAddr/PageSize;
+        offset = noffH.code.virtualAddr%PageSize;
+        entry = &pageTable[vpn];
+        pageFrame = entry->physicalPage;
+        executable->ReadAt(&(machine->mainMemory[pageFrame * PageSize + offset]),
+			noffH.code.size, noffH.code.inFileAddr);
+    }
+    if (noffH.initData.size > 0) {
+        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+			noffH.initData.virtualAddr, noffH.initData.size);
+        vpn = noffH.initData.virtualAddr/PageSize;
+        offset = noffH.initData.virtualAddr%PageSize;
+        entry = &pageTable[vpn];
+        pageFrame = entry->physicalPage;
+        executable->ReadAt(&(machine->mainMemory[pageFrame * PageSize + offset]),
+			noffH.initData.size, noffH.initData.inFileAddr);
+    }
+
+}*/
 //--------------------------------------------------------------------
 
 
@@ -207,6 +253,12 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     unsigned int vpn, offset;
     TranslationEntry *entry;
     unsigned int pageFrame;
+    int pageFaultError = 0;
+    /*unsigned copy_vpn, copy_offset;
+    unsigned int copy_pageFrame;
+    TranslationEntry *copy_entry;
+    NoffHeader noffH;*/
+
 
     DEBUG('a', "\tTranslate 0x%x, %s: ", virtAddr, writing ? "write" : "read");
 
@@ -233,11 +285,30 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 	} else if (!pageTable[vpn].valid) {
 	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
 			virtAddr, pageTableSize);
-		numPageFaults++;
-		if (PageFaultHandler() == -1)
-	    		return PageFaultException;
-		else
-			*physAddr = PageFaultHandler();
+		//numPageFaults++;
+		//if (PageFaultHandler() == -1)
+	    	//	return PageFaultException;
+		//else
+		//	pageFrame = PageFaultHandler();
+		//WriteRegister(39, vpn);
+		pageFaultError = 1;
+
+		while (PhyPageIsAllocated[i]) 
+			i++;
+		if (i >= NumPhysPages)
+			ASSERT(FALSE);
+//	currentThread->SortedInsertInWaitQueue(stats->totalTicks+1000);
+	//entry = &pageTable[vpn];
+		pageTable[vpn].physicalPage = i;
+		pageTable[vpn].valid = TRUE;	
+		PhyPageIsAllocated[i] = TRUE;
+
+		bzero(&machine->mainMemory[numPagesAllocated*PageSize], PageSize);
+	
+		numPagesAllocated++;
+		printf("HERE AM I");
+		currentThread->space->CopyContent(vpn);
+		printf("I CAN'T REACH HERE");
 	}
 	entry = &pageTable[vpn];
     } else {
@@ -277,7 +348,11 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
     *physAddr = pageFrame * PageSize + offset;
     ASSERT((*physAddr >= 0) && ((*physAddr + size) <= MemorySize));
     DEBUG('a', "phys addr = 0x%x\n", *physAddr);
-    return NoException;
+
+    	if (pageFaultError)
+		return PageFaultException;
+	else
+		return NoException;
 }
 
 //----------------------------------------------------------------------

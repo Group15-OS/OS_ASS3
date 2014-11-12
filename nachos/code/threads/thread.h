@@ -161,6 +161,7 @@ class Thread {
     ThreadStatus status;		// ready, running or blocked
     
     char* name;
+  //  char* file;
 
     int pid, ppid;			// My pid and my parent's pid
 

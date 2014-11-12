@@ -519,9 +519,9 @@ ExceptionHandler(ExceptionType which)
 		}
 		else {
 			if(adjustment_value == COND_OP_WAIT){
-				printf("Before calling internal function\n");
+				//printf("Before calling internal function\n");
 				conditions[condId]->Wait(semaphores[semId]);
-				printf("after the same\n");
+				//printf("after the same\n");
 			}
 			else if(adjustment_value == COND_OP_SIGNAL){
 				conditions[condId]->Signal();
@@ -577,6 +577,30 @@ ExceptionHandler(ExceptionType which)
 	
 	// Return the Semaphore ID
 	machine->WriteRegister(2, exitcode);
+    }
+ 
+    else if (which == PageFaultException)
+    {
+        vpn = machine->ReadRegister(BadVAddrReg);
+        stats->numPageFaults++;
+        while (PhyPageIsAllocated[i]) 
+            i++;
+        if (i >= NumPhysPages)
+            ASSERT(FALSE);
+//  currentThread->SortedInsertInWaitQueue(stats->totalTicks+1000);
+  //entry = &pageTable[vpn];
+    pageTable[vpn].physicalPage = i;
+    pageTable[vpn].valid = TRUE;  
+    PhyPageIsAllocated[i] = TRUE;
+
+    bzero(&machine->mainMemory[numPagesAllocated*PageSize], PageSize);
+  
+    numPagesAllocated++;
+    printf("HERE AM I");
+    currentThread->space->CopyContent(vpn);
+    printf("I CAN'T REACH HERE");
+
+	       currentThread->SortedInsertInWaitQueue(stats->totalTicks + 1000);	
     }
  
 //////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////

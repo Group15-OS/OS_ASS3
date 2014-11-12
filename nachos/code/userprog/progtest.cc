@@ -31,12 +31,31 @@ BatchStartFunction (int dummy)
 void
 StartProcess(char *filename)
 {
+    currentFile = new char[1024];
+    sprintf(currentFile,"%s",filename);
     OpenFile *executable = fileSystem->Open(filename);
+
     AddrSpace *space;
+    TranslationEntry* pageTable;
+    unsigned i;
+    unsigned numberOfPages;
+    int index;
+
+    pageTable = currentThread->space->GetPageTable();
+    numberOfPages = currentThread->space->GetNumPages();
+    for(i=0; i<numberOfPages; i++)
+    {
+        if (pageTable[i].shared != TRUE)
+        {
+            index = pageTable[i].physicalPage;
+            PhyPageIsAllocated[index] = FALSE;
+        }
+    }
+    
 
     if (executable == NULL) {
-	printf("Unable to open file %s\n", filename);
-	return;
+	   printf("Unable to open file %s\n", filename);
+	   return;
     }
     space = new AddrSpace(executable);    
     currentThread->space = space;

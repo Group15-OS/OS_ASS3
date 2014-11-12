@@ -37,6 +37,8 @@ Thread::Thread(char* threadName, int nice)
 
     name = new char[1024];
     sprintf(name,"%s",threadName);
+    // file = new char[1024];
+    // sprintf(file, "%s", fileName)
     stackTop = NULL;
     stack = NULL;
     status = JUST_CREATED;

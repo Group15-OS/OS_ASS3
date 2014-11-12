@@ -100,7 +100,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     }
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    bzero(&machine->mainMemory[numPagesAllocated*PageSize], size);
+/*    bzero(&machine->mainMemory[numPagesAllocated*PageSize], size);
  
     numPagesAllocated += numPages;
 
@@ -125,7 +125,56 @@ AddrSpace::AddrSpace(OpenFile *executable)
         executable->ReadAt(&(machine->mainMemory[pageFrame * PageSize + offset]),
 			noffH.initData.size, noffH.initData.inFileAddr);
     }
+*/
+}
 
+//---------------------------------------------------------------------
+//AddrSpace::CopyContent(OpenFile *executable, int vpn)
+//To copy the contents at the time of pageframe allocation
+//---------------------------------------------------------------------
+void
+AddrSpace::CopyContent(unsigned int vpn)
+{
+    OpenFile *executable = fileSystem->Open(currentFile);
+    unsigned copy_vpn, copy_offset;
+    unsigned int copy_pageFrame;
+    TranslationEntry *copy_entry;
+    NoffHeader noffH;   
+
+    if (noffH.code.size > 0) {
+        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+            noffH.code.virtualAddr, noffH.code.size);
+        copy_vpn = noffH.code.virtualAddr/PageSize;
+        copy_offset = noffH.code.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        copy_pageFrame = copy_entry->physicalPage;
+        unsigned int code_end = (noffH.code.size + noffH.code.virtualAddr) - 1;
+        unsigned int page_start = vpn * PageSize;
+
+        if (code_end > page_start)
+            executable->ReadAt(&(machine->mainMemory[copy_pageFrame * PageSize]),
+                code_end - page_start, noffH.code.inFileAddr + page_start);
+        if (noffH.code.virtualAddr < page_start+PageSize)
+            executable->ReadAt(&(machine->mainMemory[copy_pageFrame * PageSize + copy_offset]),
+                (page_start+PageSize)-noffH.code.virtualAddr, noffH.code.virtualAddr);
+    }
+    if (noffH.initData.size > 0) {
+        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+        noffH.initData.virtualAddr, noffH.initData.size);
+        copy_vpn = noffH.initData.virtualAddr/PageSize;
+        copy_offset = noffH.initData.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        copy_pageFrame = copy_entry->physicalPage;
+        unsigned int data_end = (noffH.initData.size + noffH.initData.virtualAddr) - 1;
+        unsigned int page_start = vpn * PageSize;
+        
+         if (data_end > page_start)
+            executable->ReadAt(&(machine->mainMemory[copy_pageFrame * PageSize]),
+                data_end - page_start, noffH.initData.inFileAddr + page_start);
+        if (noffH.initData.virtualAddr < page_start+PageSize)
+            executable->ReadAt(&(machine->mainMemory[copy_pageFrame * PageSize + copy_offset]),
+                (page_start+PageSize)-noffH.initData.virtualAddr, noffH.initData.virtualAddr);
+    }
 }
 
 //----------------------------------------------------------------------
@@ -156,8 +205,11 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
 	else
 	{	
 		pageTable[i].physicalPage = numPagesAllocated;
-		for (j=0 ; j< PageSize; j++){
+        if (parentPageTable[i].valid)
+        {
+		    for (j=0 ; j< PageSize; j++){
 	      		machine->mainMemory[(pageTable[i].physicalPage*PageSize)+j] = machine->mainMemory[(parentPageTable[i].physicalPage*PageSize)+j];
+            }
 		}
 		numPagesAllocated++;
 	}
@@ -213,7 +265,7 @@ AddrSpace::AllocateSharedMemory(int size )
 	}
 	for (i=CurrentPages; i<TotalPages; i++) {
            pageTable[i].virtualPage = i;
-           pageTable[i].physicalPage = i+numPagesAllocated;
+           pageTable[i].physicalPage = i+numPagesAllocated-CurrentPages;
            pageTable[i].valid = TRUE;
            pageTable[i].use = FALSE;
            pageTable[i].dirty = FALSE;
@@ -221,7 +273,7 @@ AddrSpace::AllocateSharedMemory(int size )
                                         			// a separate page, we could set its
                                         			// pages to be read-only
  	   pageTable[i].shared = TRUE;
-
+       stats->numPageFaults++;
 
 	}
 	numPages = TotalPages;

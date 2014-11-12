@@ -10,14 +10,15 @@
  *	be careful to allocate a big enough stack to hold the automatics!
  */
 
-#include "syscall.h"
+//#include "syscall.h"
 
 int
 main()
 {
-    sys_PrintString("hello world\n");
-    sys_PrintString("Executed ");
-    sys_PrintInt(sys_GetNumInstr());
-    sys_PrintString(" instructions.\n");
+  //	sys_PrintInt(1111);
+    //sys_PrintString("hello world\n");
+    //sys_PrintString("Executed ");
+    //sys_PrintInt(sys_GetNumInstr());
+    //sys_PrintString(" instructions.\n");
     return 0;
 }
