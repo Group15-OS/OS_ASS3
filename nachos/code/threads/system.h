@@ -82,6 +82,9 @@ extern Condition *conditions[];
 /*for demand paging*/
 extern bool PhyPageIsAllocated[];
 extern char *currentFile;
+extern int replacementAlgo;
+extern int PageReplacement();
+
 /////
 class TimeSortedWaitQueue {		// Needed to implement SC_Sleep
 private:

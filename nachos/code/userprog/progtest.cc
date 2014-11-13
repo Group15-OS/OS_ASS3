@@ -34,6 +34,7 @@ StartProcess(char *filename)
     
     currentFile = new char[1024];
     sprintf(currentFile,"%s",filename);
+
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
     
@@ -42,10 +43,12 @@ StartProcess(char *filename)
     	printf("Unable to open file %s\n", filename);
     	return;
     }
-    space = new AddrSpace(executable);    
+    space = new AddrSpace(executable);                         
+ 
     currentThread->space = space;
 
     // delete executable;			// close file                              //akg:: This closes the file, so no more data can be copied. Hence I removed it.
+
 
     space->InitRegisters();		// set the initial register values
     space->RestoreState();		// load page table register

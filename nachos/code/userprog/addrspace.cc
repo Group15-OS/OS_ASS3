@@ -81,7 +81,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
     numPages = divRoundUp(size, PageSize);
     size = numPages * PageSize;
 
-    ASSERT(numPages+numPagesAllocated <= NumPhysPages);		// check we're not trying
+   //G-15 ASSERT(numPages+numPagesAllocated <= NumPhysPages);		// check we're not trying
 										// to run anything too big --
 										// at least until we have
 										// virtual memory
@@ -92,7 +92,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 	for (i = 0; i < numPages; i++) {
 		pageTable[i].virtualPage = i;
 		// pageTable[i].physicalPage = i+numPagesAllocated;
-		// pageTable[i].physicalPage = -1;
+		pageTable[i].physicalPage = -1;
 		pageTable[i].valid = FALSE;
 		pageTable[i].use = FALSE;
 		pageTable[i].dirty = FALSE;
@@ -146,41 +146,40 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
                                                                                 // at least until we have
                                                                                 // virtual memory
 
-    DEBUG('a', "Initializing address space, num pages %d, size %d\n",
-                                        numPages, size);
+    DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
     // first, set up the translation
     TranslationEntry* parentPageTable = parentSpace->GetPageTable();
     pageTable = new TranslationEntry[numPages];
     for (i = 0; i < numPages; i++) {
         pageTable[i].virtualPage = i;
-	if (parentPageTable[i].shared) {
+	    if (parentPageTable[i].shared) {
         	pageTable[i].physicalPage = parentPageTable[i].physicalPage;
-	}
-	else
-	{	
-		//pageTable[i].physicalPage = numPagesAllocated;
-        if (parentPageTable[i].valid)
-        {
-            while (PhyPageIsAllocated[k]) k++;
-            if (k == NumPhysPages)
-            {
-                ASSERT(FALSE);
-            }   
-            pageTable[i].physicalPage = k;
-            PhyPageIsAllocated[k] = TRUE;
-            for (j=0 ; j< PageSize; j++){
-	      		machine->mainMemory[(pageTable[i].physicalPage*PageSize)+j] = machine->mainMemory[(parentPageTable[i].physicalPage*PageSize)+j];
-            }
         }
-		numPagesAllocated++;
-	}
+        else
+        {	
+    		//pageTable[i].physicalPage = numPagesAllocated;
+            if (parentPageTable[i].valid)
+            {
+                while (PhyPageIsAllocated[k]) k++;
+                if (k == NumPhysPages)
+                {
+                    ASSERT(FALSE);
+                }   
+                pageTable[i].physicalPage = k;
+                PhyPageIsAllocated[k] = TRUE;
+                for (j=0 ; j< PageSize; j++){
+    	      		machine->mainMemory[(pageTable[i].physicalPage*PageSize)+j] = machine->mainMemory[(parentPageTable[i].physicalPage*PageSize)+j];
+                }
+            }
+    		numPagesAllocated++;
+        }
         pageTable[i].valid = parentPageTable[i].valid;
         pageTable[i].use = parentPageTable[i].use;
         pageTable[i].dirty = parentPageTable[i].dirty;
         pageTable[i].readOnly = parentPageTable[i].readOnly;  	// if the code segment was entirely on
                                         			// a separate page, we could set its
                                         			// pages to be read-only
-	pageTable[i].shared = parentPageTable[i].shared;
+        pageTable[i].shared = parentPageTable[i].shared;
     }
 
     // Copy the contents

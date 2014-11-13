@@ -14,6 +14,8 @@ main()
 
     while( 1 )
     {
+    		sys_PrintInt(28);
+
 	sys_Write(prompt, 2, output);
 
 	i = 0;

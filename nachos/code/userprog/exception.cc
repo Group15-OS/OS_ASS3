@@ -27,6 +27,7 @@
 #include "console.h"
 #include "synch.h"
 #include "noff.h"
+#include "sysdep.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -56,6 +57,7 @@ static void ReadAvail(int arg) { readAvail->V(); }
 static void WriteDone(int arg) { writeDone->V(); }
 
 extern void StartProcess (char*);
+extern int PageReplacement();
 
 void
 ForkStartFunction (int dummy)
@@ -78,6 +80,14 @@ static void ConvertIntToHex (unsigned v, Console *console)
       writeDone->P() ;
       console->PutChar('a'+x-10);
    }
+}
+
+int PageReplacement()
+{
+	if (replacementAlgo == 1)
+	{
+		printf("%d , %d , %d\n", Random(), Random()%NumPhysPages, NumPhysPages);
+	}
 }
 
 void
@@ -128,10 +138,14 @@ ExceptionHandler(ExceptionType which)
        }
        currentThread->Exit(i==thread_index, exitcode);
     }
+
+
     else if ((which == SyscallException) && (type == syscall_Exec)) {
        // Copy the executable name into kernel space
        vaddr = machine->ReadRegister(4);
+       printf("vaddr:%d\n", vaddr);
        machine->ReadMem(vaddr, 1, &memval);
+
        i = 0;
        while ((*(char*)&memval) != '\0') {
           buffer[i] = (*(char*)&memval);
@@ -140,8 +154,9 @@ ExceptionHandler(ExceptionType which)
           machine->ReadMem(vaddr, 1, &memval);
        }
        buffer[i] = (*(char*)&memval);
+
        /*
-       *    for deletion of Caller's page pageTable: Group 15 ki karamat
+       *    for deletion of Caller's pageTable: Group 15 ki karamat
        */
        TranslationEntry* pageTable;
        unsigned i;
@@ -150,19 +165,26 @@ ExceptionHandler(ExceptionType which)
        int count = 0;
 
        pageTable = currentThread->space->GetPageTable();
+       DEBUG('a', "size of pageTable = %d.\n Get the int value of pageTable printed : %d\n", sizeof *pageTable, pageTable->valid);			//G-15
        numberOfPages = currentThread->space->GetNumPages();
+       DEBUG('a', "The number of pages in the page table = %d || check for GetNumPages.\n", numberOfPages);		//G-15
+
        for(i=0; i<numberOfPages; i++)
        {
            if (pageTable[i].shared != TRUE)
            {
                index = pageTable[i].physicalPage;
+               DEBUG('a', "The index in the for loop = %d\n", index);		//G-15
                PhyPageIsAllocated[index] = FALSE;
                count++;
            }
        }
-       delete pageTable;
+       printf("BUFFER ARRAY: %s\n", buffer);
+       delete pageTable;//currentThread->space;
        numPagesAllocated -= count;
+       printf("The place of Seg Fault\n");
        StartProcess(buffer);
+
     }
     else if ((which == SyscallException) && (type == syscall_Join)) {
        waitpid = machine->ReadRegister(4);
@@ -616,12 +638,11 @@ ExceptionHandler(ExceptionType which)
         stats->numPageFaults++;
         TranslationEntry *entry;
         va = machine->ReadRegister(BadVAddrReg);
-        vpn = va/PageSize;									// akg:: Problem solved!! BadVAddrReg returns the virtual address, not the page number
+        vpn = va/PageSize;									// akg:: Problem solved!! BadVAddrReg returns the virtual address, not the page number; I can't believe we realised it that late
 
         printf("vpn = %d\n",vpn);
         TranslationEntry* pageTable = currentThread->space->GetPageTable();
         
-
         entry = &pageTable[vpn];
         i = 0;
         while (PhyPageIsAllocated[i] == TRUE)
@@ -631,9 +652,15 @@ ExceptionHandler(ExceptionType which)
         
         printf("i = %d\n",i);
 
-        if (i == NumPhysPages)
+        if (i == NumPhysPages)								// Entry to this 'if' marks a page replacement
         {
-            ASSERT(FALSE);
+        	if (replacementAlgo != 0)
+        	{
+        		i = PageReplacement();
+        	}
+        	else {
+            	ASSERT(FALSE);
+            }
         }
         entry->virtualPage = vpn;
         entry->physicalPage = i;
@@ -650,12 +677,7 @@ ExceptionHandler(ExceptionType which)
         // machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
     }
 
- /*  else if(which == NoException)
-    {
-      machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
-      machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
-      machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
-    }*/
+ 
 //////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////
 
   else {

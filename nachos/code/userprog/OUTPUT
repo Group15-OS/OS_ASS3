@@ -1,0 +1,42 @@
+vpn = 0
+i = 0
+vpn = 3
+i = 1
+vpn = 13
+i = 2
+vpn = 4
+i = 3
+vpn = 1
+i = 4
+Before calling Exec.
+vaddr:600
+BUFFER ARRAY: ../test/vectorsum
+The place of Seg Fault
+vpn = 0
+i = 0
+vpn = 3
+i = 1
+vpn = 14
+i = 2
+vpn = 4
+i = 3
+vpn = 11
+i = 4
+vpn = 12
+i = 5
+vpn = 13
+i = 6
+vpn = 5
+i = 7
+vpn = 1
+i = 8
+vpn = 6
+i = 9
+Total sum: 4950
+Executed instruction count: vpn = 2
+i = 10
+3878
+Unexpected user mode exception 1 7
+Assertion failed: line 685, file "../userprog/exception.cc"
+Aborted
+

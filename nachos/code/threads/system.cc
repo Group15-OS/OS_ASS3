@@ -40,6 +40,9 @@ Condition *conditions[MAX_CONDITIONS];
 /*For Demand Pagin */
 bool PhyPageIsAllocated[NumPhysPages]={false};	//tells if a physical page is free or allocated
 char *currentFile;
+int replacementAlgo = 0;
+int PageReplacement();
+
 ///////////////
 unsigned numPagesAllocated;              // number of physical frames allocated
 
@@ -273,3 +276,16 @@ Cleanup()
     
     Exit(0);
 }
+
+//-----------------------------------------------------------------------------
+//Initialization
+//To initialize the array to -1 so that we can use it to save PIDs further.
+//-----------------------------------------------------------------------------
+/*void Initialization()
+{
+    int i;
+    for (i=0; i<NumPhysPages; i++)
+    {
+        PhyPageIsAllocated[i] = -1;
+    }
+}*/
