@@ -94,10 +94,18 @@ Machine::ReadMem(int addr, int size, int *value)
     DEBUG('a', "Reading VA 0x%x, size %d\n", addr, size);
     
     exception = Translate(addr, &physicalAddress, size, FALSE);
-    if (exception != NoException) {
+   /* if (exception != NoException) {
 	machine->RaiseException(exception, addr);
 	return FALSE;
-    }
+    }*/
+  while(exception != NoException)
+  {
+    if (exception != NoException){
+        machine->RaiseException(exception, addr);
+    }    
+    exception = Translate(addr, &physicalAddress, size, FALSE);
+    
+  }
     switch (size) {
       case 1:
 	data = machine->mainMemory[physicalAddress];
@@ -143,10 +151,20 @@ Machine::WriteMem(int addr, int size, int value)
     DEBUG('a', "Writing VA 0x%x, size %d, value 0x%x\n", addr, size, value);
 
     exception = Translate(addr, &physicalAddress, size, TRUE);
-    if (exception != NoException) {
+    /*if (exception != NoException) {
 	machine->RaiseException(exception, addr);
 	return FALSE;
+    }*/
+
+  while(exception != NoException)
+  {
+    if (exception != NoException)
+    {
+        machine->RaiseException(exception, addr);
+
     }
+    exception = Translate(addr, &physicalAddress, size, TRUE);
+  }
     switch (size) {
       case 1:
 	machine->mainMemory[physicalAddress] = (unsigned char) (value & 0xff);
@@ -172,16 +190,16 @@ Machine::WriteMem(int addr, int size, int value)
 //Machine::PageFaultHandler
 //Made by Group15
 //----------------------------------------------------------------------
-int
-Machine::PageFaultHandler(unsigned int vpn)
-{
-	TranslationEntry *entry;
-	int i=0;
-	Sleep();
-	while (PhyPageIsAllocated[i]) i++;
-	entry = &pageTable[vpn];
-	entry->physicalPage = i;	
-}
+// int
+// Machine::PageFaultHandler(unsigned int vpn)
+// {
+// 	TranslationEntry *entry;
+// 	int i=0;
+// 	Sleep();
+// 	while (PhyPageIsAllocated[i]) i++;
+// 	entry = &pageTable[vpn];
+// 	entry->physicalPage = i;	
+// }
 //--------------------------------------------------------------------
 
 
@@ -224,22 +242,29 @@ Machine::Translate(int virtAddr, int* physAddr, int size, bool writing)
 // from the virtual address
     vpn = (unsigned) virtAddr / PageSize;
     offset = (unsigned) virtAddr % PageSize;
+
+    /*printf("\nPrinting array:\n");
+    for (int x=0; x<NumPhysPages;x++)
+    {
+      printf("%d\t",PhyPageIsAllocated[x]);
+    }*/
     
     if (tlb == NULL) {		// => page table => vpn is index into table
-	if (vpn >= pageTableSize) {
-	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
-			virtAddr, pageTableSize);
-	    return AddressErrorException;
-	} else if (!pageTable[vpn].valid) {
-	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", 
-			virtAddr, pageTableSize);
-		numPageFaults++;
-		if (PageFaultHandler() == -1)
-	    		return PageFaultException;
-		else
-			*physAddr = PageFaultHandler();
-	}
-	entry = &pageTable[vpn];
+    	if (vpn >= pageTableSize) {
+    	    DEBUG('a', "virtual page # %d too large for page table size %d!\n", virtAddr, pageTableSize);
+    	    return AddressErrorException;
+    	} else if (!pageTable[vpn].valid) {
+    	    DEBUG('a', "virtual page # %d (not valid) too large for page table size %d!\n", virtAddr, pageTableSize);
+            DEBUG('a', "Miss Prachi, invalid virtual page # %d is not too large for page table size %d!\n and virtual address is %d --Avikalp\n", vpn, pageTableSize, virtAddr);       //akg::
+    		// numPageFaults++;
+    		// if (PageFaultHandler() == -1)
+    	    		return PageFaultException;
+    		// else
+    			//*physAddr = PageFaultHandler();
+            //RaiseException(PageFaultException, virtAddr);
+            //return; 
+    	}
+    	entry = &pageTable[vpn];
     } else {
         for (entry = NULL, i = 0; i < TLBSize; i++)
     	    if (tlb[i].valid && (tlb[i].virtualPage == vpn)) {

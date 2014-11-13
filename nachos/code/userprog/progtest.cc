@@ -31,25 +31,29 @@ BatchStartFunction (int dummy)
 void
 StartProcess(char *filename)
 {
+    
+    currentFile = new char[1024];
+    sprintf(currentFile,"%s",filename);
     OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
+    
 
     if (executable == NULL) {
-	printf("Unable to open file %s\n", filename);
-	return;
+    	printf("Unable to open file %s\n", filename);
+    	return;
     }
     space = new AddrSpace(executable);    
     currentThread->space = space;
 
-    delete executable;			// close file
+    // delete executable;			// close file                              //akg:: This closes the file, so no more data can be copied. Hence I removed it.
 
     space->InitRegisters();		// set the initial register values
     space->RestoreState();		// load page table register
 
     machine->Run();			// jump to the user progam
     ASSERT(FALSE);			// machine->Run never returns;
-					// the address space exits
-					// by doing the syscall "exit"
+        					// the address space exits
+        					// by doing the syscall "exit"
 }
 
 // Data structures needed for the console test.  Threads making

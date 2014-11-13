@@ -38,6 +38,7 @@ class AddrSpace {
 
     TranslationEntry* GetPageTable();
     unsigned AllocateSharedMemory(int size);
+    void CopyContent(unsigned int pageFrame, unsigned vpn);
 
 
   private:

@@ -26,6 +26,7 @@
 #include "syscall.h"
 #include "console.h"
 #include "synch.h"
+#include "noff.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -105,6 +106,8 @@ ExceptionHandler(ExceptionType which)
     int PhyAddr; 		// Used in syscall_SemCtl
     int condId;			// Used in syscall_CondGet
     int condKey;		// Used in syscall_CondGet
+    unsigned va;       //used in PageFaultException
+    unsigned vpn;       //used in PageFaultException
 
 
     if ((which == SyscallException) && (type == syscall_Halt)) {
@@ -137,6 +140,28 @@ ExceptionHandler(ExceptionType which)
           machine->ReadMem(vaddr, 1, &memval);
        }
        buffer[i] = (*(char*)&memval);
+       /*
+       *    for deletion of Caller's page pageTable: Group 15 ki karamat
+       */
+       TranslationEntry* pageTable;
+       unsigned i;
+       unsigned numberOfPages;
+       int index;
+       int count = 0;
+
+       pageTable = currentThread->space->GetPageTable();
+       numberOfPages = currentThread->space->GetNumPages();
+       for(i=0; i<numberOfPages; i++)
+       {
+           if (pageTable[i].shared != TRUE)
+           {
+               index = pageTable[i].physicalPage;
+               PhyPageIsAllocated[index] = FALSE;
+               count++;
+           }
+       }
+       delete pageTable;
+       numPagesAllocated -= count;
        StartProcess(buffer);
     }
     else if ((which == SyscallException) && (type == syscall_Join)) {
@@ -171,15 +196,10 @@ ExceptionHandler(ExceptionType which)
        child->space = new AddrSpace (currentThread->space);  // Duplicates the address space
        	//printf("address space for child created\n");
 	child->SaveUserState ();		     		      // Duplicate the register set
-       	//printf("address space for child created 1111111\n");
        child->ResetReturnValue ();			     // Sets the return register to zero
-       	//printf("address space for child created 2222222\n");
        child->StackAllocate (ForkStartFunction, 0);	// Make it ready for a later context switch
-       	//printf("address space for child created 333333333\n");
        child->Schedule ();
-       	//printf("address space for child created 44444\n");
        machine->WriteRegister(2, child->GetPID());		// Return value for parent
-       	//printf("address space for child created 5555555\n");
     }
     else if ((which == SyscallException) && (type == syscall_Yield)) {
        currentThread->Yield();
@@ -228,13 +248,17 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
     }
     else if ((which == SyscallException) && (type == syscall_PrintString)) {
+        // printf("Line 0\n");
        vaddr = machine->ReadRegister(4);
+       // printf("Line 1 in PrintString\n");
        machine->ReadMem(vaddr, 1, &memval);
+       // printf("Line 2\n");
        while ((*(char*)&memval) != '\0') {
           writeDone->P() ;
           console->PutChar(*(char*)&memval);
           vaddr++;
           machine->ReadMem(vaddr, 1, &memval);
+          // printf("\nI reached Print_String!\n");
        }
        // Advance program counters.
        machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
@@ -311,6 +335,7 @@ ExceptionHandler(ExceptionType which)
     }
     else if ((which == SyscallException) && (type == syscall_NumInstr)) {
        machine->WriteRegister(2, currentThread->GetInstructionCount());
+       // printf("\nI reached Num_Instr\n");
        // Advance program counters.
        machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
        machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
@@ -519,9 +544,9 @@ ExceptionHandler(ExceptionType which)
 		}
 		else {
 			if(adjustment_value == COND_OP_WAIT){
-				printf("Before calling internal function\n");
+				//printf("Before calling internal function\n");
 				conditions[condId]->Wait(semaphores[semId]);
-				printf("after the same\n");
+				//printf("after the same\n");
 			}
 			else if(adjustment_value == COND_OP_SIGNAL){
 				conditions[condId]->Signal();
@@ -578,10 +603,62 @@ ExceptionHandler(ExceptionType which)
 	// Return the Semaphore ID
 	machine->WriteRegister(2, exitcode);
     }
- 
+
+    /*
+    *	PAGE FAULT Exception
+    *
+    *	Yeh wala comment aise hi dala hai, mujhe ek baar mein dikhta hi nahi ki 
+    *	Page Fault Exception kahan se shuru ho raha hai
+    */
+    else if (which == PageFaultException)       
+    {
+        
+        stats->numPageFaults++;
+        TranslationEntry *entry;
+        va = machine->ReadRegister(BadVAddrReg);
+        vpn = va/PageSize;									// akg:: Problem solved!! BadVAddrReg returns the virtual address, not the page number
+
+        printf("vpn = %d\n",vpn);
+        TranslationEntry* pageTable = currentThread->space->GetPageTable();
+        
+
+        entry = &pageTable[vpn];
+        i = 0;
+        while (PhyPageIsAllocated[i] == TRUE)
+        {
+           i++;
+        }
+        
+        printf("i = %d\n",i);
+
+        if (i == NumPhysPages)
+        {
+            ASSERT(FALSE);
+        }
+        entry->virtualPage = vpn;
+        entry->physicalPage = i;
+        entry->valid = TRUE;
+        PhyPageIsAllocated[i] = TRUE;
+
+        bzero(&machine->mainMemory[numPagesAllocated*PageSize], PageSize);
+
+        numPagesAllocated++;
+        currentThread->space->CopyContent(entry->physicalPage, vpn);
+       // currentThread->SortedInsertInWaitQueue(stats->totalTicks+10);
+        // machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+        // machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+        // machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+    }
+
+ /*  else if(which == NoException)
+    {
+      machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+      machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+      machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+    }*/
 //////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////
 
-   else {
+  else {
 	printf("Unexpected user mode exception %d %d\n", which, type);
 	ASSERT(FALSE);
    }

@@ -53,6 +53,9 @@ SwapHeader (NoffHeader *noffH)
 //	First, set up the translation from program memory to physical 
 //	memory.  For now, this is really simple (1:1), since we are
 //	only uniprogramming, and we have a single unsegmented page table
+// Group15:
+//  The translation will not be one to one anymore, since we are implementing
+//  demand paging in this Operating System
 //
 //	"executable" is the file containing the object code to load into memory
 //----------------------------------------------------------------------
@@ -83,29 +86,29 @@ AddrSpace::AddrSpace(OpenFile *executable)
 										// at least until we have
 										// virtual memory
 
-    DEBUG('a', "Initializing address space, num pages %d, size %d\n", 
-					numPages, size);
+	DEBUG('a', "Initializing address space, num pages %d, size %d\n", numPages, size);
 // first, set up the translation 
-    pageTable = new TranslationEntry[numPages];
-    for (i = 0; i < numPages; i++) {
-	pageTable[i].virtualPage = i;
-//	pageTable[i].physicalPage = i+numPagesAllocated;
-	pageTable[i].valid = FALSE;
-	pageTable[i].use = FALSE;
-	pageTable[i].dirty = FALSE;
-	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
-					// a separate page, we could set its 
-					// pages to be read-only
-	pageTable[i].shared = FALSE;
-    }
+	pageTable = new TranslationEntry[numPages];
+	for (i = 0; i < numPages; i++) {
+		pageTable[i].virtualPage = i;
+		// pageTable[i].physicalPage = i+numPagesAllocated;
+		// pageTable[i].physicalPage = -1;
+		pageTable[i].valid = FALSE;
+		pageTable[i].use = FALSE;
+		pageTable[i].dirty = FALSE;
+		pageTable[i].readOnly = FALSE;  // if the code segment was entirely on 
+										// a separate page, we could set its 
+										// pages to be read-only
+		pageTable[i].shared = FALSE;
+	}
 // zero out the entire address space, to zero the unitialized data segment 
 // and the stack segment
-    bzero(&machine->mainMemory[numPagesAllocated*PageSize], size);
+    // bzero(&machine->mainMemory[numPagesAllocated*PageSize], size);
  
-    numPagesAllocated += numPages;
+    // numPagesAllocated += numPages;
 
 // then, copy in the code and data segments into memory
-    if (noffH.code.size > 0) {
+   /* if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
 			noffH.code.virtualAddr, noffH.code.size);
         vpn = noffH.code.virtualAddr/PageSize;
@@ -124,7 +127,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
         pageFrame = entry->physicalPage;
         executable->ReadAt(&(machine->mainMemory[pageFrame * PageSize + offset]),
 			noffH.initData.size, noffH.initData.inFileAddr);
-    }
+    }*/
 
 }
 
@@ -136,7 +139,7 @@ AddrSpace::AddrSpace(OpenFile *executable)
 AddrSpace::AddrSpace(AddrSpace *parentSpace)
 {
     numPages = parentSpace->GetNumPages();
-    unsigned i, j, size = numPages * PageSize;
+    unsigned i, j, k=0, size = numPages * PageSize;
 
     ASSERT(numPages+numPagesAllocated <= NumPhysPages);                // check we're not trying
                                                                                 // to run anything too big --
@@ -155,10 +158,20 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
 	}
 	else
 	{	
-		pageTable[i].physicalPage = numPagesAllocated;
-		for (j=0 ; j< PageSize; j++){
+		//pageTable[i].physicalPage = numPagesAllocated;
+        if (parentPageTable[i].valid)
+        {
+            while (PhyPageIsAllocated[k]) k++;
+            if (k == NumPhysPages)
+            {
+                ASSERT(FALSE);
+            }   
+            pageTable[i].physicalPage = k;
+            PhyPageIsAllocated[k] = TRUE;
+            for (j=0 ; j< PageSize; j++){
 	      		machine->mainMemory[(pageTable[i].physicalPage*PageSize)+j] = machine->mainMemory[(parentPageTable[i].physicalPage*PageSize)+j];
-		}
+            }
+        }
 		numPagesAllocated++;
 	}
         pageTable[i].valid = parentPageTable[i].valid;
@@ -191,7 +204,7 @@ AddrSpace::AddrSpace(AddrSpace *parentSpace)
 unsigned
 AddrSpace::AllocateSharedMemory(int size )
 {
-	unsigned i;
+	unsigned i , k=0;  
 	unsigned TotalPages;					//Number of current pages + pages needed to cover the shared memory
 	unsigned CurrentPages = GetNumPages();
 	unsigned SharedPages = divRoundUp(size, PageSize);
@@ -213,15 +226,24 @@ AddrSpace::AllocateSharedMemory(int size )
 	}
 	for (i=CurrentPages; i<TotalPages; i++) {
            pageTable[i].virtualPage = i;
-           pageTable[i].physicalPage = i+numPagesAllocated;
+
+            while (PhyPageIsAllocated[k]) k++;
+            if (k == NumPhysPages)
+            {
+                ASSERT(FALSE);
+            }   
+            pageTable[i].physicalPage = k;
+            PhyPageIsAllocated[k] = TRUE;
+
+           //pageTable[i].physicalPage = i+numPagesAllocated - CurrentPages;
            pageTable[i].valid = TRUE;
            pageTable[i].use = FALSE;
            pageTable[i].dirty = FALSE;
            pageTable[i].readOnly = FALSE;  	// if the code segment was entirely on
                                         			// a separate page, we could set its
                                         			// pages to be read-only
- 	   pageTable[i].shared = TRUE;
-
+            pageTable[i].shared = TRUE;
+            stats->numPageFaults++;
 
 	}
 	numPages = TotalPages;
@@ -260,7 +282,7 @@ AddrSpace::InitRegisters()
     int i;
 
     for (i = 0; i < NumTotalRegs; i++)
-	machine->WriteRegister(i, 0);
+		machine->WriteRegister(i, 0);
 
     // Initial program counter -- must be location of "Start"
     machine->WriteRegister(PCReg, 0);	
@@ -311,4 +333,120 @@ TranslationEntry*
 AddrSpace::GetPageTable()
 {
    return pageTable;
+}
+
+//---------------------------------------------------------------------
+//AddrSpace::CopyContent(OpenFile *executable, int vpn)
+//To copy the contents at the time of pageframe allocation
+//---------------------------------------------------------------------
+void
+AddrSpace::CopyContent(unsigned int pageFrame, unsigned vpn)
+{
+    unsigned overlap_start, overlap_end;
+    unsigned copy_vpn, copy_offset;
+    unsigned size;
+    TranslationEntry *copy_entry;
+    NoffHeader noffH;
+    // entry = &pageTable[vpn];
+    OpenFile *executable = fileSystem->Open(currentFile);
+    executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
+    if ((noffH.noffMagic != NOFFMAGIC) && (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+        SwapHeader(&noffH);
+    ASSERT(noffH.noffMagic == NOFFMAGIC);
+   
+   /* size = noffH.code.size + noffH.initData.size + noffH.uninitData.size 
+            + UserStackSize;    // we need to increase the size
+                        // to leave room for the stack
+    numPages = divRoundUp(size, PageSize);
+    size = numPages * PageSize;
+
+    char* temp_array;
+    temp_array = new char[size];
+
+
+    if (noffH.code.size > 0) {
+        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", 
+            noffH.code.virtualAddr, noffH.code.size);
+        copy_vpn = noffH.code.virtualAddr/PageSize;
+        copy_offset = noffH.code.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        //pageFrame = entry->physicalPage;
+        executable->ReadAt(&(temp_array[pageFrame * PageSize + copy_offset]),
+            noffH.code.size, noffH.code.inFileAddr);
+    }
+    if (noffH.initData.size > 0) {
+        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", 
+            noffH.initData.virtualAddr, noffH.initData.size);
+        copy_vpn = noffH.initData.virtualAddr/PageSize;
+        copy_offset = noffH.initData.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        // pageFrame = entry->physicalPage;
+        executable->ReadAt(&(temp_array[pageFrame * PageSize + copy_offset]),
+            noffH.initData.size, noffH.initData.inFileAddr);
+    }
+
+    for (int j=0 ; j< PageSize; j++){
+                machine->mainMemory[(pageFrame*PageSize)+j] = temp_array[j];
+    }*/
+   if (noffH.code.size > 0) {
+        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n", noffH.code.virtualAddr, noffH.code.size);
+        copy_vpn = noffH.code.virtualAddr/PageSize;
+        copy_offset = noffH.code.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        // pageFrame = entry->physicalPage;
+        unsigned code_start = noffH.code.virtualAddr;
+        unsigned code_end = (noffH.code.size + noffH.code.virtualAddr) - 1;
+        unsigned page_start = vpn * PageSize;
+        unsigned page_end = (page_start + PageSize)-1;
+        if (code_start > page_start)
+        {
+            overlap_start = code_start;
+        }
+        else
+        {
+            overlap_start = page_start;
+        }
+        if (code_end < page_end)
+        {
+            overlap_end = code_end;
+        }
+        else
+        {
+            overlap_end = page_end;
+        }
+
+        executable->ReadAt(&(machine->mainMemory[pageFrame*PageSize + copy_offset]), (overlap_end - overlap_start) + 1, noffH.code.inFileAddr + overlap_start - noffH.code.virtualAddr);
+    }
+    if (noffH.initData.size > 0) {
+        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n", noffH.initData.virtualAddr, noffH.initData.size);
+        copy_vpn = noffH.initData.virtualAddr/PageSize;
+        copy_offset = noffH.initData.virtualAddr%PageSize;
+        copy_entry = &pageTable[copy_vpn];
+        // pageFrame = entry->physicalPage;
+        unsigned data_end = (noffH.initData.size + noffH.initData.virtualAddr) - 1;
+        unsigned page_start = vpn * PageSize;
+        unsigned data_start = noffH.initData.virtualAddr;
+        unsigned page_end = (page_start + PageSize)-1;
+        
+        if (data_start > page_start)
+        {
+            overlap_start = data_start;
+        }
+        else
+        {
+            overlap_start = page_start;
+        }
+        if (data_end < page_end)
+        {
+            overlap_end = data_end;
+        }
+        else
+        {
+            overlap_end = page_end;
+        }
+
+        executable->ReadAt(&(machine->mainMemory[pageFrame*PageSize + copy_offset]), (overlap_end - overlap_start) + 1, noffH.initData.inFileAddr + overlap_start - noffH.initData.virtualAddr);
+    } 
+
+    
 }

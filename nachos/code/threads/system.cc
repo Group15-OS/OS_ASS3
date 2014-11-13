@@ -7,6 +7,7 @@
 
 #include "copyright.h"
 #include "system.h"
+#include "machine.h"
 
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
@@ -38,6 +39,7 @@ Condition *conditions[MAX_CONDITIONS];
 //////////////
 /*For Demand Pagin */
 bool PhyPageIsAllocated[NumPhysPages]={false};	//tells if a physical page is free or allocated
+char *currentFile;
 ///////////////
 unsigned numPagesAllocated;              // number of physical frames allocated
 
