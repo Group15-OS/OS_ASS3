@@ -7,6 +7,7 @@
 
 #include "copyright.h"
 #include "system.h"
+#include "machine.h"
 
 // This defines *all* of the global data structures used by Nachos.
 // These are all initialized and de-allocated by this file.
@@ -19,6 +20,30 @@ Statistics *stats;			// performance metrics
 Timer *timer;				// the hardware timer device,
 					// for invoking context switches
 
+/*
+* For the Semaphores
+*/
+unsigned Sem_size = 0;
+int Id_counter = 0;
+int semaphoreId[MAX_SEMAPHORES];
+int semaphoreKey[MAX_SEMAPHORES];
+Semaphore *semaphores[MAX_SEMAPHORES];
+/*
+* For Condition Variable
+*/
+unsigned Cond_size = 0;
+int CondId_counter = 0;
+int conditionId[MAX_CONDITIONS];
+int conditionKey[MAX_CONDITIONS];
+Condition *conditions[MAX_CONDITIONS];
+//////////////
+/*For Demand Pagin */
+bool PhyPageIsAllocated[NumPhysPages]={false};	//tells if a physical page is free or allocated
+char *currentFile;
+int replacementAlgo = 0;
+int PageReplacement();
+
+///////////////
 unsigned numPagesAllocated;              // number of physical frames allocated
 
 Thread *threadArray[MAX_THREAD_COUNT];  // Array of thread pointers
@@ -252,3 +277,15 @@ Cleanup()
     Exit(0);
 }
 
+//-----------------------------------------------------------------------------
+//Initialization
+//To initialize the array to -1 so that we can use it to save PIDs further.
+//-----------------------------------------------------------------------------
+/*void Initialization()
+{
+    int i;
+    for (i=0; i<NumPhysPages; i++)
+    {
+        PhyPageIsAllocated[i] = -1;
+    }
+}*/

@@ -52,13 +52,15 @@ Dequeue (int id, int *y)
       sys_PrintString(": waiting on queue empty.");
       sys_PrintChar('\n');
       sys_SemOp(stdoutsemid, 1);
-      sys_CondOp(notEmptyid, COND_OP_WAIT, semid);
+	//sys_PrintString("Debug statement after SemOp operation\n");
+  sys_CondOp(notEmptyid, COND_OP_WAIT, semid);
+	//sys_PrintString("Debug statement after CondOp operation\n");
    }
    x = array[array[SIZE]];
    (*y) = array[SIZE];
    array[SIZE] = (array[SIZE] + 1)%SIZE;
    array[SIZE+2]--;
-   sys_CondOp(notFullid, COND_OP_SIGNAL, semid);
+  sys_CondOp(notFullid, COND_OP_SIGNAL, semid);
    sys_SemOp(semid, 1);
    return x;
 }
@@ -71,24 +73,38 @@ main()
     int pid[NUM_DEQUEUER+NUM_ENQUEUER];
 
     for (i=0; i<SIZE; i++) array[i] = -1;
-    array[SIZE] = 0;
-    array[SIZE+1] = 0;
-    array[SIZE+2] = 0;
+    // array[SIZE] = 0;
+    // array[SIZE+1] = 10;
+    // array[SIZE+2] = 100;
 
     semid = sys_SemGet(SEM_KEY1);
+//	sys_PrintInt(semid);
     sys_SemCtl(semid, SYNCH_SET, &seminit);
+/*	sys_PrintChar('\n');
+	sys_PrintInt(sys_SemCtl(semid, SYNCH_GET, &y));
+	sys_PrintChar('\n');
+	sys_PrintInt(y);
+	sys_PrintChar('\n');*/
 
     stdoutsemid = sys_SemGet(SEM_KEY2);
     sys_SemCtl(stdoutsemid, SYNCH_SET, &seminit);
 
     notFullid = sys_CondGet(COND_KEY1);
+	//sys_PrintString("Cond Id 1: ");
+	//sys_PrintInt(notFullid);
+	//sys_PrintChar('\n');
     notEmptyid = sys_CondGet(COND_KEY2);
+	//sys_PrintString("Cond Id 2: ");
+	//sys_PrintInt(notEmptyid);
+	//sys_PrintChar('\n');
 
     for (i=0; i<NUM_DEQUEUER; i++) {
+	//sys_PrintString("Before Fork\n");
        x = sys_Fork();
        if (x == 0) {
           for (j=0; j<NUM_DEQUEUE_OP; j++) {
              x = Dequeue (i, &y);
+	//sys_PrintString("!!!!!!!!!!!!!!!!!!!!!GANDA-------------SANDHA&&&&&&&&&&&&&&&&&&&");
              sys_SemOp(stdoutsemid, -1);
              sys_PrintString("Dequeuer ");
              sys_PrintInt(i);
@@ -101,6 +117,7 @@ main()
           }
           sys_Exit(DEQUEUE_EXIT_CODE);
        }
+	//sys_PrintString("I am the parent of this bloody While loop wala child!!\n");
        pid[i] = x;
     }
     
@@ -137,8 +154,14 @@ main()
     }
     sys_SemCtl(semid, SYNCH_REMOVE, 0);
     sys_SemCtl(stdoutsemid, SYNCH_REMOVE, 0);
-    sys_CondRemove(notFullid);
-    sys_CondRemove(notEmptyid);
+  sys_CondRemove(notFullid);
+   sys_CondRemove(notEmptyid);
 
+	sys_PrintInt(array[SIZE]);
+	sys_PrintChar('\n');
+	sys_PrintInt(array[SIZE+1]);
+	sys_PrintChar('\n');
+	sys_PrintInt(array[SIZE+2]);
+	sys_PrintChar('\n');
     return 0;
 }

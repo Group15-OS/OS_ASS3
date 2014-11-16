@@ -42,7 +42,9 @@ class Semaphore {
     Semaphore(char* debugName, int initialValue);	// set initial value
     ~Semaphore();   					// de-allocate semaphore
     char* getName() { return name;}			// debugging assist
-    
+    int getValue() { return value; }
+	
+    void setValue(int input); //to store value in Semaphore    
     void P();	 // these are the only operations on a semaphore
     void V();	 // they are both *atomic*
     
@@ -129,9 +131,12 @@ class Condition {
     void Signal(Lock *conditionLock);   // conditionLock must be held by
     void Broadcast(Lock *conditionLock);// the currentThread for all of 
 					// these operations
-
+	void Wait(Semaphore *S);
+	void Signal();
+	void Broadcast();
   private:
     char* name;
+	List *queue;
     // plus some other stuff you'll need to define
 };
 #endif // SYNCH_H

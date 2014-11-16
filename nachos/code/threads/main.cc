@@ -116,8 +116,13 @@ main(int argc, char **argv)
             currentThread->SetBasePriority(schedPriority+DEFAULT_BASE_PRIORITY);
             currentThread->SetPriority(schedPriority+DEFAULT_BASE_PRIORITY);
             currentThread->SetUsage(0);
-        } else if (!strcmp(*argv, "-x")) {        	// run a user program
-	    ASSERT(argc > 1);
+        } else if (!strcmp(*argv, "-R")) {
+		        replacementAlgo = atoi(*(argv + 1));
+		        argCount = 2;
+		        ASSERT((replacementAlgo >= 1) && (replacementAlgo <= 4));
+	      }
+        else if (!strcmp(*argv, "-x")) {        	// run a user program
+	           ASSERT(argc > 1);
             StartProcess(*(argv + 1));
             argCount = 2;
         } else if (!strcmp(*argv, "-c")) {      // test the console

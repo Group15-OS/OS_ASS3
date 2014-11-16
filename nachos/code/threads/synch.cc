@@ -51,6 +51,18 @@ Semaphore::~Semaphore()
     delete queue;
 }
 
+//--------------------------------------
+// Semaphore::setValue(int input)
+// change the value of the Semaphore to the input value
+// Group 15 made it
+//--------------------------------------
+	
+void
+Semaphore::setValue(int input)
+{
+	value = input;
+}
+
 //----------------------------------------------------------------------
 // Semaphore::P
 // 	Wait until semaphore value > 0, then decrement.  Checking the
@@ -105,8 +117,62 @@ Lock::~Lock() {}
 void Lock::Acquire() {}
 void Lock::Release() {}
 
-Condition::Condition(char* debugName) { }
-Condition::~Condition() { }
+Condition::Condition(char* debugName) { 
+    name = debugName;
+    //value = initialValue;
+    queue = new List;
+}
+Condition::~Condition() {
+	delete queue;	
+}
 void Condition::Wait(Lock* conditionLock) { ASSERT(FALSE); }
 void Condition::Signal(Lock* conditionLock) { }
 void Condition::Broadcast(Lock* conditionLock) { }
+
+void
+Condition::Wait(Semaphore* S)
+{
+	//printf("line 1");
+	S->V();
+	//printf("line 2");
+	queue->Append((void *)currentThread);	// so go to sleep
+	//printf("line 3");
+	IntStatus oldLevel = interrupt->SetLevel(IntOff);
+	//printf("line 4");
+	currentThread->Sleep();
+	//printf("line 5");
+	(void) interrupt->SetLevel(oldLevel);
+	//printf("line 6");
+	S->P();	
+	//printf("line 7");
+}
+
+void 
+Condition::Signal()
+{
+    Thread *thread;
+	
+//    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    thread = (Thread *)queue->Remove();
+    if (thread != NULL)	   // make thread ready, consuming the V immediately
+	scheduler->ReadyToRun(thread);
+    //value++;
+  //  (void) interrupt->SetLevel(oldLevel);
+}
+
+void
+Condition::Broadcast()
+{
+    Thread *thread;
+	
+    IntStatus oldLevel = interrupt->SetLevel(IntOff);
+
+    thread = (Thread *)queue->Remove();
+    while (thread != NULL) {	   // make thread ready, consuming the V immediately
+	scheduler->ReadyToRun(thread);
+	thread = (Thread *)queue->Remove();
+    }
+    //value++;
+    (void) interrupt->SetLevel(oldLevel);
+}

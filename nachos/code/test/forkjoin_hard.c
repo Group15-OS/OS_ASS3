@@ -31,7 +31,9 @@ main()
        sys_PrintInt(y);
        sys_PrintChar('\n');
        x = sys_Fork();
-       sys_Exec("../test/printtest");
+       sys_PrintChar('\n');
+       sys_PrintString("HELLLO!!!");
+       //sys_Exec("../test/printtest");
        if (x == 0) {
           sys_PrintString("Child PID: ");
           sys_PrintInt(sys_GetPID());

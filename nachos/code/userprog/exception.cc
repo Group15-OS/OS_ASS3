@@ -26,6 +26,8 @@
 #include "syscall.h"
 #include "console.h"
 #include "synch.h"
+#include "noff.h"
+#include "sysdep.h"
 
 //----------------------------------------------------------------------
 // ExceptionHandler
@@ -55,6 +57,7 @@ static void ReadAvail(int arg) { readAvail->V(); }
 static void WriteDone(int arg) { writeDone->V(); }
 
 extern void StartProcess (char*);
+extern int PageReplacement();
 
 void
 ForkStartFunction (int dummy)
@@ -79,6 +82,14 @@ static void ConvertIntToHex (unsigned v, Console *console)
    }
 }
 
+int PageReplacement()
+{
+	if (replacementAlgo == 1)
+	{
+		printf("%d , %d , %d\n", Random(), Random()%NumPhysPages, NumPhysPages);
+	}
+}
+
 void
 ExceptionHandler(ExceptionType which)
 {
@@ -98,6 +109,16 @@ ExceptionHandler(ExceptionType which)
     int whichChild;		// Used in syscall_Join
     Thread *child;		// Used by syscall_Fork
     unsigned sleeptime;		// Used by syscall_Sleep
+    int size;			// Used in syscall_ShmAllocate	
+    int semKey; 		// Used in syscall_SemGet
+    int semId; 			// Used in syscall_SemGet
+    int adjustment_value; 	// Used in syscall_SemOp
+    int PhyAddr; 		// Used in syscall_SemCtl
+    int condId;			// Used in syscall_CondGet
+    int condKey;		// Used in syscall_CondGet
+    unsigned va;       //used in PageFaultException
+    unsigned vpn;       //used in PageFaultException
+
 
     if ((which == SyscallException) && (type == syscall_Halt)) {
 	DEBUG('a', "Shutdown, initiated by user program.\n");
@@ -117,10 +138,14 @@ ExceptionHandler(ExceptionType which)
        }
        currentThread->Exit(i==thread_index, exitcode);
     }
+
+
     else if ((which == SyscallException) && (type == syscall_Exec)) {
        // Copy the executable name into kernel space
        vaddr = machine->ReadRegister(4);
+       printf("vaddr:%d\n", vaddr);
        machine->ReadMem(vaddr, 1, &memval);
+
        i = 0;
        while ((*(char*)&memval) != '\0') {
           buffer[i] = (*(char*)&memval);
@@ -129,7 +154,37 @@ ExceptionHandler(ExceptionType which)
           machine->ReadMem(vaddr, 1, &memval);
        }
        buffer[i] = (*(char*)&memval);
+
+       /*
+       *    for deletion of Caller's pageTable: Group 15 ki karamat
+       */
+       TranslationEntry* pageTable;
+       unsigned i;
+       unsigned numberOfPages;
+       int index;
+       int count = 0;
+
+       pageTable = currentThread->space->GetPageTable();
+       DEBUG('a', "size of pageTable = %d.\n Get the int value of pageTable printed : %d\n", sizeof *pageTable, pageTable->valid);			//G-15
+       numberOfPages = currentThread->space->GetNumPages();
+       DEBUG('a', "The number of pages in the page table = %d || check for GetNumPages.\n", numberOfPages);		//G-15
+
+       for(i=0; i<numberOfPages; i++)
+       {
+           if (pageTable[i].shared != TRUE)
+           {
+               index = pageTable[i].physicalPage;
+               DEBUG('a', "The index in the for loop = %d\n", index);		//G-15
+               PhyPageIsAllocated[index] = FALSE;
+               count++;
+           }
+       }
+       printf("BUFFER ARRAY: %s\n", buffer);
+       delete pageTable;//currentThread->space;
+       numPagesAllocated -= count;
+       printf("The place of Seg Fault\n");
        StartProcess(buffer);
+
     }
     else if ((which == SyscallException) && (type == syscall_Join)) {
        waitpid = machine->ReadRegister(4);
@@ -159,8 +214,10 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
        
        child = new Thread("Forked thread", GET_NICE_FROM_PARENT);
+    	//printf("creating new thread for child\n");
        child->space = new AddrSpace (currentThread->space);  // Duplicates the address space
-       child->SaveUserState ();		     		      // Duplicate the register set
+       	//printf("address space for child created\n");
+	child->SaveUserState ();		     		      // Duplicate the register set
        child->ResetReturnValue ();			     // Sets the return register to zero
        child->StackAllocate (ForkStartFunction, 0);	// Make it ready for a later context switch
        child->Schedule ();
@@ -213,13 +270,17 @@ ExceptionHandler(ExceptionType which)
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
     }
     else if ((which == SyscallException) && (type == syscall_PrintString)) {
+        // printf("Line 0\n");
        vaddr = machine->ReadRegister(4);
+       // printf("Line 1 in PrintString\n");
        machine->ReadMem(vaddr, 1, &memval);
+       // printf("Line 2\n");
        while ((*(char*)&memval) != '\0') {
           writeDone->P() ;
           console->PutChar(*(char*)&memval);
           vaddr++;
           machine->ReadMem(vaddr, 1, &memval);
+          // printf("\nI reached Print_String!\n");
        }
        // Advance program counters.
        machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
@@ -296,12 +357,331 @@ ExceptionHandler(ExceptionType which)
     }
     else if ((which == SyscallException) && (type == syscall_NumInstr)) {
        machine->WriteRegister(2, currentThread->GetInstructionCount());
+       // printf("\nI reached Num_Instr\n");
        // Advance program counters.
        machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
        machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
        machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
-    } else {
+    }
+///////////////////////// STARTING CHANGES FOR ASSIGNMENT3 ///////////////////////
+    else if((which == SyscallException) && (type == syscall_ShmAllocate)) {
+	size = machine->ReadRegister(4);    
+
+	vaddr = currentThread->space->AllocateSharedMemory(size);
+       
+	machine->WriteRegister(2, vaddr);
+       // Advance program counters.
+       machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+       machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+       machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_SemGet))
+    {
+	semKey = machine->ReadRegister(4);
+	for(i=0; i<Sem_size; i++){
+		if(semaphoreKey[i] == semKey){
+			semId = semaphoreId[i];
+			break;
+		}
+	}
+	if(Sem_size >= MAX_SEMAPHORES){
+		printf("ERROR: The total number of semaphores has exceeded the allowed limit.\n Semaphore could not be created, function returns -1\n");
+		semId = -1; //The return value corresponding to return
+	}
+	if(( i == Sem_size) && (Sem_size < MAX_SEMAPHORES)) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+	
+		semaphoreKey[Sem_size] = semKey;
+		semaphoreId[Sem_size] = Id_counter;
+		semaphores[Sem_size] = new Semaphore("Sem_name", 1);
+		semId = semaphoreId[Sem_size];
+		Sem_size++;
+		Id_counter++;
+	
+		(void) interrupt->SetLevel(oldLevel); //enable interrupts
+    	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, semId);
+    }
+	
+    else if ((which == SyscallException) && (type == syscall_SemOp))
+    {
+	semId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	for(i =0; i<Sem_size; i++){
+		if(semaphoreId[i] == semId){
+			semId = i;
+			break;
+		}
+	}
+	if(i == Sem_size){
+		printf("ERROR: The semaphore id entered is not a valid id\n");
+	}
+	else {
+		if(adjustment_value == -1){
+			semaphores[semId]->P();
+		}
+		else if(adjustment_value == 1){
+			semaphores[semId]->V();
+		}
+		else {
+			printf("ERROR: Invalid Operation id in syscall_SemOp\n");
+		}
+	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	//machine->WriteRegister(2, semId);
+    }
+	
+    else if ((which == SyscallException) && (type == syscall_SemCtl))
+    {
+	//printf("qqqqqqqqqqqqqqqqqqqqqq entered\n");
+	semId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	vaddr = machine->ReadRegister(6);
+	
+	for (i=0; i<Sem_size; i++){
+		if(semaphoreId[i] == semId){
+			semId = i;
+			break;
+		}
+	}
+	if (i == Sem_size) {
+		exitcode = -1;
+	}
+	else if(adjustment_value == SYNCH_REMOVE){
+		delete semaphores[semId];
+		for(i=semId; i<Sem_size-1; i++){
+			semaphores[i] = semaphores[i+1]; //deleting semaphore
+			semaphoreKey[i] = semaphoreKey[i+1]; //removing from mapping
+			semaphoreId[i] = semaphoreId[i+1];
+		}
+		Sem_size--;
+		exitcode = 0;
+	}
+	else if(adjustment_value == SYNCH_GET) {
+		PhyAddr = machine->GetPA(vaddr);
+		if(PhyAddr == -1){
+			exitcode = -1;
+		}
+		else {
+			machine->mainMemory[PhyAddr] = semaphores[semId]->getValue();
+			exitcode = 0;
+		}
+	}
+	else if(adjustment_value == SYNCH_SET) {
+		PhyAddr = machine->GetPA(vaddr);
+		//printf("reached a correct destination before segmentation fault\n");
+		if(PhyAddr == -1){
+			exitcode = -1;
+		}
+		else {
+			//printf("intPointer is also not null, baby we are going to rock the world");
+			semaphores[semId]->setValue(machine->mainMemory[PhyAddr]);
+			exitcode = 0;
+		}
+	}
+	else {
+		//printf("The adjustment value was not a valid value");
+		exitcode = -1;
+	}
+	//printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaa successful completion\n");
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, exitcode);
+    }
+ 
+    else if ((which == SyscallException) && (type == syscall_CondGet))
+    {
+	condKey = machine->ReadRegister(4);
+	for(i=0; i<Cond_size; i++){
+		if(conditionKey[i] == condKey){
+			condId = conditionId[i];
+			break;
+		}
+	}
+	if(Cond_size >= MAX_CONDITIONS){
+		printf("ERROR: The total number of conditions has exceeded the allowed limit.\n Condition Variable could not be created, function returns -1\n");
+		condId = -1; //The return value corresponding to return
+	}
+	if(( i == Cond_size) && (Cond_size < MAX_CONDITIONS)) {
+		IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+	
+		conditionKey[Cond_size] = condKey;
+		conditionId[Cond_size] = CondId_counter;
+		conditions[Cond_size] = new Condition("Cond_name");
+		condId = conditionId[Cond_size];
+		Cond_size++;
+		CondId_counter++;
+	
+		(void) interrupt->SetLevel(oldLevel); //enable interrupts
+    	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, condId);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_CondOp))
+    {
+	condId = machine->ReadRegister(4);
+	adjustment_value = machine->ReadRegister(5);
+	semId = machine->ReadRegister(6);
+	
+	for(i =0; i<Cond_size; i++){
+		if(conditionId[i] == condId){
+			condId = i;
+			break;
+		}
+	}
+	if(i == Cond_size){
+		printf("ERROR: The condition variable id entered is not a valid id\n");
+	}
+	else {
+		for(i =0; i<Sem_size; i++){
+			if(semaphoreId[i] == semId){
+				semId = i;
+				break;
+			}
+		}
+		if(i == Sem_size){
+			printf("ERROR: The semaphore id entered is not a valid id\n");
+		}
+		else {
+			if(adjustment_value == COND_OP_WAIT){
+				//printf("Before calling internal function\n");
+				conditions[condId]->Wait(semaphores[semId]);
+				//printf("after the same\n");
+			}
+			else if(adjustment_value == COND_OP_SIGNAL){
+				conditions[condId]->Signal();
+			}
+			else if(adjustment_value == COND_OP_BROADCAST){
+				conditions[condId]->Broadcast();
+			}
+			else {
+				printf("ERROR: Invalid operation in syscall_CondOp");
+			}
+		}
+	}
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	//machine->WriteRegister(2, semId);
+    }
+
+    else if ((which == SyscallException) && (type == syscall_CondRemove))
+    {
+	//printf("qqqqqqqqqqqqqqqqqqqqqq entered\n");
+	condId = machine->ReadRegister(4);
+//	adjustment_value = machine->ReadRegister(5);
+//	vaddr = machine->ReadRegister(6);
+	
+	for (i=0; i<Cond_size; i++){
+		if(conditionId[i] == condId){
+			condId = i;
+			break;
+		}
+	}
+	if (i == Cond_size) {
+		exitcode = -1;
+	}
+	else {
+		delete conditions[condId];
+		for(i=condId; i<Cond_size-1; i++){
+			conditions[i] = conditions[i+1]; //deleting condiion variable
+			conditionKey[i] = conditionKey[i+1]; //removing from mapping
+			conditionId[i] = conditionId[i+1];
+		}
+		Cond_size--;
+		exitcode = 0;
+	}
+	//printf("aaaaaaaaaaaaaaaaaaaaaaaaaaaa successful completion\n");
+	// Advance program counters.
+	machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+	
+	// Return the Semaphore ID
+	machine->WriteRegister(2, exitcode);
+    }
+
+    /*
+    *	PAGE FAULT Exception
+    *
+    *	Yeh wala comment aise hi dala hai, mujhe ek baar mein dikhta hi nahi ki 
+    *	Page Fault Exception kahan se shuru ho raha hai
+    */
+    else if (which == PageFaultException)       
+    {
+        
+        stats->numPageFaults++;
+        TranslationEntry *entry;
+        va = machine->ReadRegister(BadVAddrReg);
+        vpn = va/PageSize;									// akg:: Problem solved!! BadVAddrReg returns the virtual address, not the page number; I can't believe we realised it that late
+
+        printf("vpn = %d\n",vpn);
+        TranslationEntry* pageTable = currentThread->space->GetPageTable();
+        
+        entry = &pageTable[vpn];
+        i = 0;
+        while (PhyPageIsAllocated[i] == TRUE)
+        {
+           i++;
+        }
+        
+        printf("i = %d\n",i);
+
+        if (i == NumPhysPages)								// Entry to this 'if' marks a page replacement
+        {
+        	if (replacementAlgo != 0)
+        	{
+        		i = PageReplacement();
+        	}
+        	else {
+            	ASSERT(FALSE);
+            }
+        }
+        entry->virtualPage = vpn;
+        entry->physicalPage = i;
+        entry->valid = TRUE;
+        PhyPageIsAllocated[i] = TRUE;
+
+        bzero(&machine->mainMemory[numPagesAllocated*PageSize], PageSize);
+
+        numPagesAllocated++;
+        currentThread->space->CopyContent(entry->physicalPage, vpn);
+       // currentThread->SortedInsertInWaitQueue(stats->totalTicks+10);
+        // machine->WriteRegister(PrevPCReg, machine->ReadRegister(PCReg));
+        // machine->WriteRegister(PCReg, machine->ReadRegister(NextPCReg));
+        // machine->WriteRegister(NextPCReg, machine->ReadRegister(NextPCReg)+4);
+    }
+
+ 
+//////////////////////////// DONE CHANGES IN ASSIGNMENT 3 /////////////////////////////////////
+
+  else {
 	printf("Unexpected user mode exception %d %d\n", which, type);
 	ASSERT(FALSE);
-    }
+   }
 }

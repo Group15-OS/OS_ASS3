@@ -33,15 +33,15 @@ Machine::Run()
     Instruction *instr = new Instruction;  // storage for decoded instruction
 
     if(DebugIsEnabled('m'))
-        printf("Starting thread \"%s\" at time %d\n",
-	       currentThread->getName(), stats->totalTicks);
-    interrupt->setStatus(UserMode);
+        printf("Starting thread \"%s\" at time %d\n", currentThread->getName(), stats->totalTicks);
+    interrupt->setStatus(UserMode);	                                   
+
     for (;;) {
         currentThread->IncInstructionCount();
         OneInstruction(instr);
-	interrupt->OneTick();
-	if (singleStep && (runUntilTime <= stats->totalTicks))
-	  Debugger();
+		interrupt->OneTick();	 
+		if (singleStep && (runUntilTime <= stats->totalTicks))
+			Debugger(); 
     }
 }
 
@@ -101,7 +101,7 @@ Machine::OneInstruction(Instruction *instr)
 
     // Fetch instruction 
     if (!machine->ReadMem(registers[PCReg], 4, &raw))
-	return;			// exception occurred
+		return;			// exception occurred
     instr->value = raw;
     instr->Decode();
 
@@ -113,7 +113,7 @@ Machine::OneInstruction(Instruction *instr)
        printf(str->string, TypeToReg(str->args[0], instr), 
 		TypeToReg(str->args[1], instr), TypeToReg(str->args[2], instr));
        printf("\n");
-       }
+    }
     
     // Compute next pc, but don't install in case there's an error or branch.
     int pcAfter = registers[NextPCReg] + 4;
@@ -533,6 +533,7 @@ Machine::OneInstruction(Instruction *instr)
 	break;
     	
       case OP_SYSCALL:
+      // printf("AM I HERE\n");
 	RaiseException(SyscallException, 0);
 	return; 
 	

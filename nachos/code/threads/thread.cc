@@ -393,13 +393,14 @@ Thread::Sleep ()
     status = BLOCKED;
     nextThread = scheduler->FindNextToRun();
     if (nextThread == NULL) {
+	//printf("No thread to run next\n");
        scheduler->SetEmptyReadyQueueStartTime (stats->totalTicks);
     }
     while (nextThread == NULL) {
 	interrupt->Idle();	// no one to run, wait for an interrupt
         nextThread = scheduler->FindNextToRun();
     }
-        
+        //printf("Found next to run!!");    
     scheduler->Run(nextThread); // returns when we've been signalled
 }
 

@@ -15,6 +15,7 @@
 #include "interrupt.h"
 #include "stats.h"
 #include "timer.h"
+#include "synch.h"
 
 #define MAX_THREAD_COUNT 1000
 #define MAX_BATCH_SIZE 100
@@ -34,6 +35,9 @@
 #define MIN_NICE_PRIORITY	0		// Highest input priority
 #define DEFAULT_BASE_PRIORITY	50		// Default base priority (used by UNIX scheduler)
 #define GET_NICE_FROM_PARENT	-1
+
+#define MAX_SEMAPHORES		128
+#define MAX_CONDITIONS		128
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -62,6 +66,26 @@ extern int cpu_burst_start_time;	// Records the start of current CPU burst
 extern int completionTimeArray[];	// Records the completion time of all simulated threads
 extern bool excludeMainThread;		// Used by completion time statistics calculation
 
+//////Semaphore ke liye
+extern int Id_counter;
+extern unsigned Sem_size;
+extern int semaphoreId[];
+extern int semaphoreKey[];
+extern Semaphore *semaphores[];
+//////Condition Variables ke liye
+extern unsigned Cond_size;
+extern int CondId_counter;
+extern int conditionId[];
+extern int conditionKey[];
+extern Condition *conditions[];
+//////
+/*for demand paging*/
+extern bool PhyPageIsAllocated[];
+extern char *currentFile;
+extern int replacementAlgo;
+extern int PageReplacement();
+
+/////
 class TimeSortedWaitQueue {		// Needed to implement SC_Sleep
 private:
    Thread *t;				// Thread pointer of the sleeping thread
